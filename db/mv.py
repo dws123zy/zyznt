@@ -245,6 +245,75 @@ def insert_data(data, tbname, vdburl=dburl, vtoken=dbtoken, vdbname=dbname):
         return 0
 
 
+'''更新、插入数据，无此主键增加，有则修改，修改是先删除原数据，然后插入'''
+
+def upsert_data(data, tbname, vdburl=dburl, vtoken=dbtoken, vdbname=dbname):
+    try:
+        client = MilvusClient(uri=vdburl, token=vtoken, db_name=vdbname)
+        try:
+            res = client.upsert(
+                collection_name=tbname,
+                data=data
+            )
+
+            print(res)
+            if res:
+                logger.warning(f'{tbname}向量数据新增成功')
+                return 1
+            else:
+                logger.warning(f'{tbname}向量数据新增失败')
+                return 0
+        except Exception as e:
+            logger.error(f"向量数据更新出错: {e}")
+            return 0
+        finally:
+            client.close()
+    except Exception as e2:
+        logger.error(f"向量数据更新连接出错: {e2}")
+        logger.error(traceback.format_exc())
+        return 0
+
+
+'''更新、插入数据，无此主键增加，有则修改，修改是先删除原数据，然后插入'''
+
+def del_data(tbname, ids=[], filterdata={}, jsondata={}, vdburl=dburl, vtoken=dbtoken, vdbname=dbname):
+    try:
+        client = MilvusClient(uri=vdburl, token=vtoken, db_name=vdbname)
+        try:
+            if ids:
+                res = client.delete(
+                    collection_name=tbname,
+                    ids=ids
+                )
+            elif filterdata:
+                filter_template, filter_params = filter_data(filterdata, jsondata)
+                res = client.delete(
+                    collection_name=tbname,
+                    filter=filter_template,
+                    filter_params=filter_params,
+                )
+            else:
+                logger.warning(f'{tbname}向量数据删除失败，没有传入ids或filterdata')
+                res = 0
+
+            print(res)
+            if res:
+                logger.warning(f'{tbname}向量数据删除成功')
+                return 1
+            else:
+                logger.warning(f'{tbname}向量数据删除失败')
+                return 0
+        except Exception as e:
+            logger.error(f"向量数据更新出错: {e}")
+            return 0
+        finally:
+            client.close()
+    except Exception as e2:
+        logger.error(f"向量数据更新连接出错: {e2}")
+        logger.error(traceback.format_exc())
+        return 0
+
+
 
 '''处理json检索项组合'''
 
@@ -286,10 +355,13 @@ def filter_data(filterdata, jsondata):
 
 '''查询函数, count值为真时，统计总条数返回'''
 
-def query_data(tbname, filterdata='', page=1, limit=10, count='', output_fields=['*'], timeout=180.0, jsondata = ''):
+def query_data(tbname, filterdata='', page=1, limit=10, count='', output_fields=[], timeout=180.0, jsondata = ''):
     try:
-        client = MilvusClient(uri=vdburl, token=vtoken, db_name=vdbname)
+        client = MilvusClient(uri=dburl, token=dbtoken, db_name=dbname)
         try:
+            # 检查输出表字段
+            if not output_fields:
+                output_fields = ['id', 'text', 'state', 'q_text', 'keyword', 'metadata']
             # 组合分页
             offset = (page-1)*limit
             # 组合查询数据
@@ -343,7 +415,7 @@ def query_data(tbname, filterdata='', page=1, limit=10, count='', output_fields=
 
 '''向量计算搜索函数，单向量搜索，支持向量和全文bm25'''
 
-def vector_search(tbname, text_vector, vector_field, filterdata='', limit=10, output_fields=['*'],
+def vector_search(tbname, text_vector, vector_field, filterdata='', limit=10, output_fields=[],
                   timeout=180.0, jsondata = ''):
     try:
         '''
@@ -351,10 +423,12 @@ def vector_search(tbname, text_vector, vector_field, filterdata='', limit=10, ou
         text_vector # 查询向量列表，就是文本转后的向量，支持多个，列表格式
         vector_field  向量字段
         '''
-        client = MilvusClient(uri=vdburl, token=vtoken, db_name=vdbname)
+        client = MilvusClient(uri=dburl, token=dbtoken, db_name=dbname)
         try:
+            # 处理输出字段
+            if not output_fields:
+                output_fields = ['text', 'q_text', 'metadata']
             # 组合分页
-            offset = (page-1)*limit
             # 组合查询数据
             filter_template = ''
             filter_params = {}
@@ -404,7 +478,7 @@ def vector_search(tbname, text_vector, vector_field, filterdata='', limit=10, ou
 '''混合搜索，支持向量+全文bm25同时搜索，或加图片等其它'''
 
 def hybrid_search(tbname, text_vector, text_sparse, vector_field='vector',sparse_field='sparse', filterdata='',
-                  limit=10, output_fields=['*'], timeout=180.0, jsondata = '', reranking='RRFRanker', rrv='60',
+                  limit=10, output_fields=[], timeout=180.0, jsondata = '', reranking='RRFRanker', rrv='60',
                   radius=0.1):
     try:
         '''
@@ -417,8 +491,11 @@ def hybrid_search(tbname, text_vector, text_sparse, vector_field='vector',sparse
         rrv 重排序权重
         '''
 
-        client = MilvusClient(uri=vdburl, token=vtoken, db_name=vdbname)
+        client = MilvusClient(uri=dburl, token=dbtoken, db_name=dbname)
         try:
+            # 处理输出字段
+            if not output_fields:
+                output_fields = ['text', 'q_text', 'metadata']
             # 组合查询数据
             filter_template = ''
             filter_params = {}

@@ -1,7 +1,7 @@
 # _*_coding:utf-8 _*_
 
 import time
-from fastapi import APIRouter, File, UploadFile, Form, Depends
+from fastapi import APIRouter, File, UploadFile, Form, Depends, HTTPException
 import logging
 from pydantic import BaseModel, Field
 import os
@@ -10,11 +10,13 @@ import json
 import traceback
 import random
 import string
+import copy
+from typing import Union
 
 # 本地模块
 from db import my, mv
 from data.data import tokenac, get_filter, get_zydict
-from mod.file import fileanalysis
+from mod.file import fileanalysis, partjx
 
 
 '''日志'''
@@ -93,7 +95,7 @@ def getfilter(mydata: publicarg, cmd: str):
             return {"msg": "cmd is error", "code": "404", "data": ""}
 
     except Exception as e:
-        logger.error(f"rag动态检索项获取接口出错: {e}")
+        logger.error(f"rag动态检索项获取接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
@@ -113,7 +115,7 @@ class ragzgsarg(publicarg):  # 通用增加和修改组合，公共+data
 '''rag查询接口'''
 
 @router.post("/rag/get", tags=["RAG知识库查询"])
-def ragzskcx(mydata: cxzharg):
+def rag_get(mydata: cxzharg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
@@ -138,7 +140,7 @@ def ragzskcx(mydata: cxzharg):
                 if d.get('search'):
                     d['search'] = json.loads(d['search'])
             except Exception as e:
-                logger.error(f" rag查询时json.loads出错: {e}")
+                logger.error(f" rag查询时json.loads错误: {e}")
                 logger.error(traceback.format_exc())
 
         # 获取表单数据form
@@ -148,7 +150,7 @@ def ragzskcx(mydata: cxzharg):
                 "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit'),
                          "form": formdata}}
     except Exception as e:
-        logger.error(f"rag查询接口出错: {e}")
+        logger.error(f"rag查询接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
@@ -156,7 +158,7 @@ def ragzskcx(mydata: cxzharg):
 '''rag新增接口'''
 
 @router.post("/rag/add", tags=["RAG知识库新增"])
-def ragzskxz(mydata: ragzgsarg):
+def rag_add(mydata: ragzgsarg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
@@ -182,7 +184,7 @@ def ragzskxz(mydata: ragzgsarg):
             if ragdata.get('search'):
                 ragdata['search'] = str(ragdata['search'])
         except Exception as e:
-            logger.error(f" rag新增时json转str出错: {e}")
+            logger.error(f" rag新增时json转str错误: {e}")
             logger.error(traceback.format_exc())
 
         # 存入mysql数据库
@@ -211,7 +213,7 @@ def ragzskxz(mydata: ragzgsarg):
         logger.warning(f'创建知识库失败{ragid}')
         return {"msg": "db error", "code": "150", "data": ''}
     except Exception as e:
-        logger.error(f"rag新增接口出错: {e}")
+        logger.error(f"rag新增接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "data error", "code": "501", "data": ""}
 
@@ -219,7 +221,7 @@ def ragzskxz(mydata: ragzgsarg):
 '''rag修改接口'''
 
 @router.put("/rag/update", tags=["RAG知识库修改"])
-def ragzskxg(mydata: ragzgsarg):
+def rag_update(mydata: ragzgsarg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
@@ -239,11 +241,11 @@ def ragzskxg(mydata: ragzgsarg):
         # 把部分字段值的字典转字符
         try:
             if ragdata.get('split'):
-                ragdata['split'] = str(d['split'])
+                ragdata['split'] = str(ragdata['split'])
             if ragdata.get('search'):
-                ragdata['search'] = str(d['search'])
+                ragdata['search'] = str(ragdata['search'])
         except Exception as e:
-            logger.error(f" rag修改时json转str出错: {e}")
+            logger.error(f" rag修改时json转str错误: {e}")
             logger.error(traceback.format_exc())
 
         # 组合检索项
@@ -257,7 +259,7 @@ def ragzskxg(mydata: ragzgsarg):
         # 返回结果
         return {"msg": "success", "code": "200", "data": ''}
     except Exception as e:
-        logger.error(f"rag修改接口出错: {e}")
+        logger.error(f"rag修改接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
@@ -266,7 +268,7 @@ def ragzskxg(mydata: ragzgsarg):
 
 
 @router.delete("/rag/del", tags=["RAG知识库删除"])
-def ragzsksc(mydata: ragzgsarg):
+def rag_del(mydata: ragzgsarg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
@@ -295,7 +297,7 @@ def ragzsksc(mydata: ragzgsarg):
         logger.warning(f'删除知识库失败{ragid}')
         return {"msg": "db error", "code": "150", "data": ''}
     except Exception as e:
-        logger.error(f"rag删除接口出错: {e}")
+        logger.error(f"rag删除接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "data error", "code": "501", "data": ""}
 
@@ -316,7 +318,7 @@ class filezgsarg(publicarg):  # 通用增加和修改组合，公共+data
 '''文件查询接口'''
 
 @router.post("/file/get", tags=["RAG文件查询"])
-def filecx(mydata: cxzharg):
+def file_get(mydata: cxzharg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
@@ -338,7 +340,7 @@ def filecx(mydata: cxzharg):
                 if d.get('split'):
                     d['split'] = json.loads(d['split'])
             except Exception as e:
-                logger.error(f" 文件查询时json.loads出错: {e}")
+                logger.error(f" 文件查询时json.loads错误: {e}")
                 logger.error(traceback.format_exc())
 
         # 获取表头
@@ -346,7 +348,7 @@ def filecx(mydata: cxzharg):
         return {"msg": "success", "code": "200",
                 "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit'), "tb": tbdata}}
     except Exception as e:
-        logger.error(f"文件查询接口出错: {e}")
+        logger.error(f"文件查询接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
@@ -411,7 +413,7 @@ async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)
 
         return {"msg": "文件上传完成", "code": "200", "data": results}
     except Exception as e:
-        logger.error(f"文件上传时出错: {e}")
+        logger.error(f"文件上传时错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
@@ -420,7 +422,7 @@ async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)
 '''文件修改接口'''
 
 @router.put("/file/update", tags=["RAG文件修改"])
-def ragfilexg(mydata: filezgsarg):
+def file_update(mydata: filezgsarg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
@@ -442,7 +444,7 @@ def ragfilexg(mydata: filezgsarg):
             if data2.get('split'):
                 data2['split'] = json.loads(data2['split'])
         except Exception as e:
-            logger.error(f" rag修改时json转str出错: {e}")
+            logger.error(f" rag修改时json转str错误: {e}")
             logger.error(traceback.format_exc())
 
         # 组合检索项
@@ -457,7 +459,7 @@ def ragfilexg(mydata: filezgsarg):
         # 返回结果
         return {"msg": "success", "code": "200", "data": ''}
     except Exception as e:
-        logger.error(f"文件修改接口出错: {e}")
+        logger.error(f"文件修改接口误错: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
@@ -465,7 +467,7 @@ def ragfilexg(mydata: filezgsarg):
 '''文件删除接口'''
 
 @router.delete("/file/del", tags=["RAG文件删除"])
-def ragzsksc(mydata: filezgsarg):
+def file_del(mydata: filezgsarg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
@@ -488,7 +490,7 @@ def ragzsksc(mydata: filezgsarg):
         # 返回结果
         return {"msg": "success", "code": "200", "data": ''}
     except Exception as e:
-        logger.error(f"文件删除接口出错: {e}")
+        logger.error(f"文件删除接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
@@ -507,10 +509,10 @@ class filejxarg(publicarg):  # 通用增加和修改组合，公共+data
 
 
 
-'''文件解析接口'''
+'''文件解析接口,解析状态：no 未解析，work 解析中，ok已解析'''
 
-@router.post("/file/analysis", tags=["文件解析"])
-def filejx(mydata: filejxarg):
+@router.api_route("/file/analysis", methods=["POST", "PUT"], tags=["文件解析"])
+def file_analysis(mydata: filejxarg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
@@ -519,28 +521,203 @@ def filejx(mydata: filejxarg):
             logger.warning(f'token验证失败')
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         data2 = data_dict.get('data', {})
-        # 检验文件状态为未解析，否则去除对应文件并返回错误
-
         # 调用解析模块执行解析
         jglist = fileanalysis(data2.get('filedata', []), data2.get('ragdata', {}))
-
-        # 把解析中的文件状态写入mysql，状态改为解析中
-
         # 返回发起解析的结果
-        return {"msg": "success", "code": "200", "data": ''}
+        return {"msg": "success", "code": "200", "data": jglist}
     except Exception as e:
-        logger.error(f"文件解析接口出错: {e}")
+        logger.error(f"文件解析接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
 
 
-'''向量块管理，增删改查'''
+'''向量文本块part查询'''
+
+@router.api_route("/part/get", methods=["POST", "PUT"], tags=["文本段查询"])
+def part_get(mydata: cxzharg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data2 = data_dict.get('data', {})
+
+        # 获取数据，从向量数据库中查询
+        filterdata = data2.get('filter', {})
+        vfilter = copy.deepcopy(filterdata)
+        if 'ragid' in vfilter:
+            del vfilter['ragid']  # 删除ragid，因为向量库里没有ragid字段可检索
+        jsondata = data2.get('filterjson', {})
+        vjg = mv.query_data(filterdata.get('ragid'), filterdata= vfilter, page=data2.get('page'), limit=data2.get('limit'),
+                                   count=1, jsondata=jsondata)  # 查询数据
+
+        datac = vjg.get('data', [])
+        nub = vjg.get('nub', 0)
+
+        return {"msg": "success", "code": "200",
+                "data": {"data": datac, "nub": nub, "page": data2.get('page'),"limit": data2.get('limit')}}
+    except Exception as e:
+        logger.error(f"向量文本块part查询错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
 
 
+'''文本段通用新增、修改、删除'''
+
+class partdataarg4(BaseModel):
+    ragdata: dict = Field(frozen=True, description="知识库数据,必填")
+    id: list = Field([0], description="文本段id列表,删除时使用")
+    data: Union[list, dict] = Field({}, description="增加修改时必填，修改时格式[{}, {}],支持多条，增加时{}，支持单条，删除时可传检索项{}")
+
+class partzgsarg(publicarg):  # 通用增加和修改组合，公共+data
+    data: partdataarg4
+
+
+'''向量文本块part新增'''
+
+@router.api_route("/part/add", methods=["POST", "PUT"], tags=["文本段新增"])
+def part_add(mydata: partzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data2 = data_dict.get('data', {})
+        # 判断是否为问答
+        partdata = data2.get('data', {})
+        # 调取转向量函数，转换并入库
+        jg = partjx(partdata, data2.get('ragdata', {}))
+
+        if jg:
+            return {"msg": "success", "code": "200", "data": ''}
+        else:
+            return {"msg": "error", "code": "150", "data": ""}
+    except Exception as e:
+        logger.error(f"向量文本块part新增错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''向量文本块part修改'''
+
+@router.api_route("/part/update", methods=["POST", "PUT"], tags=["文本段修改"])
+def part_update(mydata: partzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data2 = data_dict.get('data', {})
+        # 判断是否为问答
+        partdata = data2.get('data', {})
+        if partdata and type(partdata) in [dict]:  # 当为单条数据更新时，转为列表，多条时传过来的就是列表
+            partdata = [partdata]
+        # 调取转向量函数，转换并入库
+        jg = mv.upsert_data(partdata, data2.get('ragdata', {}).get('ragid', ''))
+
+        if jg:
+            return {"msg": "success", "code": "200", "data": ''}
+        else:
+            return {"msg": "error", "code": "150", "data": ""}
+    except Exception as e:
+        logger.error(f"向量文本块part修改错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''向量文本块part删除'''
+
+@router.api_route("/part/del", methods=["POST", "PUT", "DELETE"], tags=["文本段删除"])
+def part_del(mydata: partzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data2 = data_dict.get('data', {})
+        # 判断是否为问答
+        filterdata = data2.get('data', {})
+        # 调取转向量函数，转换并入库
+        jg = mv.del_data(data2.get('ragdata', {}).get('ragid', ''), ids=data2.get('id', []), filterdata=filterdata)
+        if jg:
+            return {"msg": "success", "code": "200", "data": ''}
+        else:
+            return {"msg": "error", "code": "150", "data": ""}
+    except Exception as e:
+        logger.error(f"向量文本块part删除错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+
+
+'''向量知识搜索查询'''
+
+class vdataarg5(BaseModel):
+    ragid: str = Field(frozen=True, description="知识库的id,必填")
+    text: str = Field(frozen=True, description="查询的文本")
+    score: float = Field(0.1, description="相似度阀值")
+    limit: int = Field(10, description="返回的文本段数量")
+    filter: dict = Field({}, description="检索项，格式：{'字段名':'字段值'}")
+    filter_json: dict = Field({}, description="json字段检索项，格式：{'字段名':{字段名：值}}")
+    rerank: str = Field('', description="rerank重排序模型")
+
+class ragvarg(publicarg):  # rag知识搜索
+    data: vdataarg5
 
 
 '''rag知识搜索功能，向量计算'''
+
+@router.api_route("/rag/search", methods=["POST"], tags=["rag知识搜索"])
+def rag_search(mydata: ragvarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data = data_dict.get('data', {})
+        # 获取检索条件
+        filterdata = data.get('filter', {})
+        # 获取ragid
+        ragid = data.get('ragid', '')
+        # 获取rag配置数据
+        ragdata = get_zydict('rag', ragid)
+        search_fun = ragdata.get('search', {}).get('search_fun', 'vector')
+        datac = []
+        if search_fun in ['vector', 'sparse']:  # 单向量搜索
+            datac = mv.vector_search(ragdata.get('ragid', ''), data.get('text', ''), ragdata.get('vector_field', ''),
+                                 filterdata, data.get('limit', 10), output_fields=[], timeout=180.0,
+                                 jsondata=data.get('filter_json', {}))
+        elif search_fun in ['vs']:
+            datac = mv.hybrid_search(ragdata.get('ragid', ''), data.get('text', ''), data.get('text_sparse', ''),
+                                 ragdata.get('vector_field', ''), ragdata.get('sparse_field', ''), filterdata,
+                                 data.get('limit', 10), output_fields=[], timeout=180.0,
+                                 jsondata=data.get('filter_json', {}), reranking=data.get('rerank', 'RRFRanker'),
+            )
+        return {"msg": "success", "code": "200", "data": datac}
+    except Exception as e:
+        logger.error(f"rag知识搜索错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+
+
+
+
+
+
 
 
 

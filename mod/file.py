@@ -102,6 +102,37 @@ def zyembd(text, embddata):
 
 '''校验文件状态和变更状态，启动解析时，文件状态要为未解析，然后改为解析中，解析完成后改为已解析'''
 
+def  file_status(fileid, cmd):
+    try:
+        if cmd in ['work']:  # 要解析文件，先校验状态为非work,然后把状态改为work
+            sql = my.sqlc({'fileid': fileid}, 'file', 1, 10, '')
+            jg = my.msqlcxnum(sql)
+            if jg and jg[0].get('analysis') not in ['work']:
+                logger.warning(f'此文件可以解析，现在改状态为解析中work')
+                sql = my.sqlg({'analysis': 'work'}, 'file', {'fileid': fileid})
+                jg2 = my.msqlzsg(sql)
+                return 1
+            else:
+                logger.warning(f'文件状态为解析中work，禁止再次解析，文件id={fileid}')
+                return 0
+        elif cmd in ['ok']:  # 此时文件解析已完成，把状态改为ok
+            logger.warning(f'文件解析完成，现在改状态为解析成功ok')
+            sql = my.sqlg({'analysis': 'ok'}, 'file', {'fileid': fileid})
+            jg2 = my.msqlzsg(sql)
+            return 1
+        elif cmd in ['error']:  # 文件解析失败，把状态改为error
+            logger.warning(f'文件解析失败，现在改状态为解析失败error')
+            sql = my.sqlg({'analysis': 'error'}, 'file', {'fileid': fileid})
+            jg3 = my.msqlzsg(sql)
+            return 1
+        else:
+            logger.warning(f'不支持的cmd={cmd}')
+            return 0
+    except Exception as e:
+        logger.error(f"文件状态修改错误: {e}")
+        return ''
+
+
 
 '''存入向量数据库和改mysql中的解析状态'''
 
@@ -116,7 +147,7 @@ def vdb_mdb(ragdata, vdata, fileid):
                 if vjg:
                     logger.warning(f'向量数据库数据存入成功，现在修改mysql中文件状态为解析成功')
                     # 存入mysql数据库
-                    sql = my.sqlg({'analysis': '已解析'}, 'file', {'fileid': fileid})
+                    sql = my.sqlg({'analysis': 'ok'}, 'file', {'fileid': fileid})
                     jg = my.msqlzsg(sql)
                     if jg:
                         logger.warning(f'数据存入mysql数据库成功')
@@ -279,12 +310,18 @@ def filejx(filedata, ragdata):
                 else:
                     logger.error(f'向量入库失败={filedata}')
         # 文件解析全部成功
+        logger.warning(f'文件解析全部成功，文件数据={filedata}')
+        # 解析成功，现在修改文件状态为ok
+        jg = file_status(fileid, 'ok')
+        # 返回结果
         return 1
 
     except Exception as e:
         logger.error(f'校验文件状态和变更状态失败，文件数据={filedata}')
         logger.error(e)
         logger.error(traceback.format_exc())
+        # 解析失败，修改文件状态为error
+        jg = file_status(fileid, 'error')
         return ''
 
 
@@ -297,14 +334,19 @@ def fileanalysis(filedata, ragdata):
         filelist = []
         for f in filedata:
             try:
-                filework = filefpool.submit(filejx, f, ragdata)
-                logger.warning(f'发起解析文件请求成功，文件数据={f}')
-                filelist.append({'fileid': f.get('fileid', ''), 'status': '解析中'})
+                jg = file_status(f.get('fileid', ''), 'work')
+                if jg:
+                    filework = filefpool.submit(filejx, f, ragdata)
+                    logger.warning(f'发起解析文件请求成功，文件数据={f}')
+                    filelist.append({'fileid': f.get('fileid', ''), 'status': 'work'})
+                else:
+                    logger.error(f'文件状态为work，文件数据={f}')
+                    filelist.append({'fileid': f.get('fileid', ''), 'status': 'error'})
             except Exception as e:
                 logger.error(f'发起解析文件请求失败，文件数据={f}')
                 logger.error(e)
                 logger.error(traceback.format_exc())
-                filelist.append({'fileid': f.get('fileid', ''), 'status': '失败'})
+                filelist.append({'fileid': f.get('fileid', ''), 'status': 'error'})
         return filelist
     except Exception as e:
         logger.error(f'解析文件失败，文件数据={filedata}')
@@ -314,6 +356,78 @@ def fileanalysis(filedata, ragdata):
 
 
 
+'''单条文本块转向量入库'''
+
+def partjx(filedata, ragdata):
+    try:
+        logger.warning(f'开始解析单条文本段，文件数据={filedata}')
+        # 处理内容
+        text = filedata.get('text', '')
+        split_fun = filedata.get('q_text', '')
+        fileid = filedata.get('fileid', '')
+        # 获取检索向量方式
+        search = ragdata.get('search', {}).get('search_fun', 'vector')  # 拿到检索向量方式
+        # 获取embedding数据
+        embdid = ragdata.get('embedding').split('/')[1] if ragdata.get('embedding') else 'bge-large-zh-v1.5'
+        embddata = get_zydict('embd', embdid)
+        # 遍历文本列表，向量化文本，组合数据，入库向量数据库
+        if text:
+            '''
+            id vector sparse text fileid  state   metadata  q_text  s_text  keyword    
+
+            id  向量 稀疏      文本  文件名或id  块状态   元数据        问   稀疏文本    关键词、标签    
+            '''
+            vd = {'fileid': fileid, 'state': 't', 'metadata': {'filename': filedata.get('name', '')}}
+
+            if search in ['vector']:  # 向量化检索
+                logger.warning(f'向量化检索数据处理开始')
+                # 判断是否为问答或llm泛化问答
+                if split_fun:  # 问答时t的数据格式为{q: ,a: }
+                    vd['q_text'] = split_fun
+                    vd['text'] = text
+                    vd['vector'] = zyembd(split_fun, embddata)
+                else:  # 非问答时，t就是文本内容
+                    vd['text'] = text
+                    vd['vector'] = zyembd(text, embddata)
+            # elif search in ['sparse']:  # 稀疏向量化检索 当只使用全文检索时，且表中没有向量字段时走这个逻辑
+            #     logger.warning(f'稀疏向量化检索数据处理开始')
+            #     # 判断是否为问答或llm泛化问答
+            #     if split_fun in ['qa'] or split_data.get('llm_q'):  # 问答时t的数据格式为{q: ,a: }
+            #         vd['q_text'] = t.get('q', '')
+            #         vd['text'] = t.get('a', '')
+            #         vd['s_text'] = t.get('q', '')
+            #     else:  # 非问答时，t就是文本内容
+            #         vd['text'] = t
+            #         vd['s_text'] = t
+            elif search in ['sparse', 'vs']:  # 全文检索  向量+稀疏向量检索
+                logger.warning(f'向量+稀疏向量检索数据处理开始')
+                # 判断是否为问答或llm泛化问答
+                if split_fun:  # 问答时t的数据格式为{q: ,a: }
+                    vd['q_text'] = split_fun
+                    vd['text'] = text
+                    vd['s_text'] = split_fun
+                    vd['vector'] = zyembd(split_fun, embddata)
+                else:  # 非问答时，t就是文本内容
+                    vd['text'] = text
+                    vd['s_text'] = text
+                    vd['vector'] = zyembd(text, embddata)
+            else:
+                logger.error(f'检索方式{search}不存在，请检查')
+            # 把本条数据加到vdata中
+            logger.warning(f'vdata数据入库中')
+            ragid = ragdata.get('ragid')
+            if ragid:
+                vjg = insert_data([vd], ragid)
+        # 解析成功
+        logger.warning(f'文本段解析成功，文件数据={filedata}')
+        # 返回结果
+        return 1
+
+    except Exception as e:
+        logger.error(f'单条文本块转向量入库错误，文件数据={filedata}')
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return ''
 
 
 

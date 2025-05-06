@@ -675,7 +675,7 @@ class ragvarg(publicarg):  # rag知识搜索
     data: vdataarg5
 
 
-'''rag知识搜索功能，向量计算'''
+'''rag知识搜索功能，向量、稀疏向量计算'''
 
 @router.api_route("/rag/search", methods=["POST"], tags=["rag知识搜索"])
 def rag_search(mydata: ragvarg):

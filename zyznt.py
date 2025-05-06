@@ -40,14 +40,14 @@ try:
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     # 普通日志处理器（INFO及以上，自动轮转）
-    file_handler = RotatingFileHandler(f'log/zyzntai_{logfilename()}.log', maxBytes=10*1024*1024,
+    file_handler = RotatingFileHandler(f'../log/zyzntai_{logfilename()}.log', maxBytes=10*1024*1024,
                                        backupCount=5, encoding='utf-8')
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
 
     # 错误日志处理器（ERROR及以上，单独文件）
     error_file_handler = RotatingFileHandler(
-        f'log/znt_error{logfilename()}.log', maxBytes=1024*1024, backupCount=5, encoding='utf-8'
+        f'../log/znt_error{logfilename()}.log', maxBytes=1024*1024, backupCount=5, encoding='utf-8'
     )
     error_file_handler.setLevel(logging.ERROR)
     error_file_handler.setFormatter(formatter)

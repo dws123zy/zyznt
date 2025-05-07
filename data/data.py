@@ -28,6 +28,10 @@ users = {}
 
 zydict = {}
 
+'''ragrag知识库数据'''
+
+ragdata = {}
+
 
 '''cd菜单数据'''
 
@@ -126,11 +130,46 @@ def loadzydict():
 loadzydict()  # 加载zydict数据
 
 
+'''从数据库加载rag知识库'''
+
+def loadrag():
+    try:
+        # 执行SQL语句
+        sqla = "select * from rag"
+        datacrag = msqlc(sqla)
+        if datacrag:
+            for i in datacrag:
+                ragdata[i['ragid']] = i
+                if i['search']:
+                    searchdata = eval(i['search'])
+                    ragdata[i['ragid']]['search'] = searchdata
+                else:
+                    ragdata[i['ragid']]['search'] = {}
+                if i['split']:
+                    splitdata = eval(i['split'])
+                    ragdata[i['ragid']]['split'] = splitdata
+                else:
+                    ragdata[i['ragid']]['split'] = {}
+            logger.warning(f'reload_rag成功={ragdata}')
+            return 200
+        else:
+            logger.warning('错误，未查到rag数据，reload_rag失败')
+            return 0
+    except Exception as sqlload:
+        logger.error("reload_rag错误:")
+        logger.error(sqlload)
+        logger.error(traceback.format_exc())
+        return 0
+
+loadrag()  # 加载rag数据
+
+
+
 '''验证码图片校验'''
 
 def img_verify(imgid, verify):
     try:
-        if openfile(f'img/{imgid}.txt') == verify:
+        if openfile(f'../file/img/{imgid}.txt') == verify:
             return True
         else:
             return False
@@ -224,7 +263,7 @@ def get_zydict(datatype, cmd, user=''):
         if datatype:  #  in ['tb', 'form', 'db']:
             if cmd and user:  # 根据用户角色、cmd获取对应的检索项
                 role = users.get(user).get('role', '')
-                jsxid = zydict.get(role, {}).get(data, {}).get(datatype, {}).get(cmd, '')
+                jsxid = zydict.get(role, {}).get('data', {}).get(datatype, {}).get(cmd, '')
                 if jsxid and jsxid in zydict:
                     return zydict.get(jsxid, {}).get('data', {})
             elif cmd:  # 只根据cmd获取检索项
@@ -238,3 +277,15 @@ def get_zydict(datatype, cmd, user=''):
         return {}
 
 
+'''根据ragid获取rag配置数据'''
+
+def get_rag(ragid):
+    try:
+        if ragid and ragid in ragdata:
+            return ragdata.get(ragid, {})
+        return {}  # 没找到数据，返回空字典
+    except Exception as e:
+        logger.error({"获取ragdata错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return {}

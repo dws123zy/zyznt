@@ -11,6 +11,7 @@ import os
 import io
 import base64
 import string
+import traceback
 
 from mod.tool import openfile, writefile  # 文件打开和写入
 from data.data import logonac
@@ -68,7 +69,7 @@ def generate_math_captcha():
         imgid = str(int(time.time()))+''.join(random.choice(characters) for _ in range(6))
 
         # 存入本地文件
-        writefile(f'img/{imgid}.txt', str(answer))
+        writefile(f'../file/img/{imgid}.txt', str(answer))
 
         # 返回 Base64 编码的图片、问题和答案
         return img_base64, question, str(answer), imgid

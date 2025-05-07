@@ -105,8 +105,8 @@ def zyembd(text, embddata):
 def  file_status(fileid, cmd):
     try:
         if cmd in ['work']:  # 要解析文件，先校验状态为非work,然后把状态改为work
-            sql = my.sqlc({'fileid': fileid}, 'file', 1, 10, '')
-            jg = my.msqlcxnum(sql)
+            sql = my.sqlc3({'fileid': fileid}, 'file', 1, 10, '')
+            jg = my.msqlc(sql)
             if jg and jg[0].get('analysis') not in ['work']:
                 logger.warning(f'此文件可以解析，现在改状态为解析中work')
                 sql = my.sqlg({'analysis': 'work'}, 'file', {'fileid': fileid})
@@ -145,17 +145,18 @@ def vdb_mdb(ragdata, vdata, fileid):
             if ragid:
                 vjg = insert_data(vdata, ragid)
                 if vjg:
-                    logger.warning(f'向量数据库数据存入成功，现在修改mysql中文件状态为解析成功')
+                    logger.warning(f'向量数据库数据存入成功')
                     # 存入mysql数据库
-                    sql = my.sqlg({'analysis': 'ok'}, 'file', {'fileid': fileid})
-                    jg = my.msqlzsg(sql)
-                    if jg:
-                        logger.warning(f'数据存入mysql数据库成功')
-                        # 返回结果
-                        return 1
-                    else:
-                        logger.warning(f'数据存入mysql数据库失败')
-                        return ''
+                    # sql = my.sqlg({'analysis': 'ok'}, 'file', {'fileid': fileid})
+                    # jg = my.msqlzsg(sql)
+                    # if jg:
+                    #     logger.warning(f'数据存入mysql数据库成功')
+                    #     # 返回结果
+                    #     return 1
+                    # else:
+                    #     logger.warning(f'数据存入mysql数据库失败')
+                    #     return ''
+                    return 1
                 else:
                     logger.warning(f'数据存入向量数据库失败')
                     return ''
@@ -173,7 +174,7 @@ def filejx(filedata, ragdata):
     try:
         logger.warning(f'开始解析文件，文件数据={filedata}')
         # 获取文件路径
-        file_path = f"file/{ragdata.get('appid', '')}/{ragdata.get('ragid', '')}/{filedata.get('name', '')}"
+        file_path = f"../file/{ragdata.get('appid', '')}/{ragdata.get('ragid', '')}/{filedata.get('name', '')}"
         logger.warning(f'文件路径={file_path}')
         # 获取文件扩展名
         file_extension = os.path.splitext(file_path)[1].replace('.', '')
@@ -363,7 +364,7 @@ def partjx(filedata, ragdata):
         logger.warning(f'开始解析单条文本段，文件数据={filedata}')
         # 处理内容
         text = filedata.get('text', '')
-        split_fun = filedata.get('q_text', '')
+        split_fun = filedata.get('q_text', '')  # 有值时为问答，否则为非问答
         fileid = filedata.get('fileid', '')
         # 获取检索向量方式
         search = ragdata.get('search', {}).get('search_fun', 'vector')  # 拿到检索向量方式

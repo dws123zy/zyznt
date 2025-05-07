@@ -274,7 +274,7 @@ def upsert_data(data, tbname, vdburl=dburl, vtoken=dbtoken, vdbname=dbname):
         return 0
 
 
-'''更新、插入数据，无此主键增加，有则修改，修改是先删除原数据，然后插入'''
+'''删除'''
 
 def del_data(tbname, ids=[], filterdata={}, jsondata={}, vdburl=dburl, vtoken=dbtoken, vdbname=dbname):
     try:
@@ -328,9 +328,9 @@ def filter_data(filterdata, jsondata):
             # 组合filter_template
             for k, v in filterdata.items():
                 if filter_template:
-                    filter_template += f"and {k} == {v} "
+                    filter_template += "and %s =={%s} " % (k, k)
                 else:
-                    filter_template = f"{k} == {v} "
+                    filter_template = " %s =={%s} " % (k, k)
         # 组合json检索项数据
         if jsondata:
             if filter_params:  # 此时已有检索项数据
@@ -341,9 +341,9 @@ def filter_data(filterdata, jsondata):
             for k, v in jsondata.items():
                 for m,  n in v.items():
                     if filter_template:
-                        filter_template += f"and {k}[{m}] == {n} "
+                        filter_template += "and %s[%s] == {%s} " % (k, m, n)
                     else:
-                        filter_template = f"{k}[{m}] == {n} "
+                        filter_template = " %s[%s] == {%s} " % (k, m, n)
 
         return filter_template, filter_params
     except Exception as e:
@@ -361,7 +361,7 @@ def query_data(tbname, filterdata='', page=1, limit=10, count='', output_fields=
         try:
             # 检查输出表字段
             if not output_fields:
-                output_fields = ['id', 'text', 'state', 'q_text', 'keyword', 'metadata']
+                output_fields = ["id", "text", "fileid", "state", "s_text", "q_text", "keyword", "metadata"]
             # 组合分页
             offset = (page-1)*limit
             # 组合查询数据
@@ -369,7 +369,7 @@ def query_data(tbname, filterdata='', page=1, limit=10, count='', output_fields=
             filter_params = {}
             if filterdata or jsondata:  # 此时有检索项数据或有json检索项数据
                 filter_template,  filter_params = filter_data(filterdata, jsondata)
-
+            logger.warning(f'filter={filter_template}, filter_params={filter_params}')
             # 执行查询
             resdata = client.query(
                 collection_name=tbname,
@@ -378,7 +378,8 @@ def query_data(tbname, filterdata='', page=1, limit=10, count='', output_fields=
                 output_fields=output_fields,  # 默认返回所有字段
                 offset=offset,  # 从第一条记录开始
                 limit=limit,  # 每页返回10条
-                timeout=timeout  # 默认180秒
+                timeout=timeout,  # 默认180秒
+                # consistency_level=0  # 一致性级别，0最高
             )
             # 判断是否需要统计总数
             resnub = 0  # 默认0
@@ -416,7 +417,7 @@ def query_data(tbname, filterdata='', page=1, limit=10, count='', output_fields=
 '''向量计算搜索函数，单向量搜索，支持向量和全文bm25'''
 
 def vector_search(tbname, text_vector, vector_field, filterdata='', limit=10, output_fields=[],
-                  timeout=180.0, jsondata = ''):
+                  timeout=180.0, jsondata = '', radius=0.1):
     try:
         '''
         tbname collection_name表名
@@ -436,6 +437,10 @@ def vector_search(tbname, text_vector, vector_field, filterdata='', limit=10, ou
                 filter_template,  filter_params = filter_data(filterdata, jsondata)
 
             # 执行查询
+            search_params = {"params": {"radius": radius}}
+            if vector_field in ['sparse']:  # 稀疏向量bm25搜索
+                search_params = {"params": {"drop_ratio_search": radius}}
+            # 搜索
             resdata = client.search(
                 collection_name=tbname,
                 data=text_vector,  # 查询向量列表，就是文本转后的向量
@@ -444,7 +449,8 @@ def vector_search(tbname, text_vector, vector_field, filterdata='', limit=10, ou
                 filter_params=filter_params,  #  就是传进来的字典
                 output_fields=output_fields,  # 默认返回所有字段
                 limit=limit,  # 每页返回10条
-                timeout=timeout  # 默认180秒
+                timeout=timeout,  # 默认180秒
+                search_params=search_params  # 相识度阈值
             )
             # 将结果转换为列表格式
             formatted_results = []

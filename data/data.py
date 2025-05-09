@@ -7,7 +7,7 @@ import time
 import traceback
 
 from db.my import msqlc, msqlzsg
-from mod.tool import openfile, writefile  # 文件打开和写入
+from mod.file import openfile, writefile  # 文件打开和写入
 
 '''日志'''
 
@@ -289,3 +289,15 @@ def get_rag(ragid):
         logger.error(e)
         logger.error(traceback.format_exc())
         return {}
+
+
+
+
+
+
+
+
+
+
+
+

@@ -152,7 +152,8 @@ rag = {
             ('embedding', 'varchar(30) default "" comment "向量化的emd模型，数据字典id"'),
             ('rerank', 'varchar(30) default "" comment "重排序模型，数据字典id"'),
             ('search', 'varchar(300) default "{}" comment "搜索方式,json格式"'),
-            ('split', 'varchar(300) default "{}" comment "文本切片方式，json格式"')
+            ('split', 'varchar(300) default "{}" comment "文本切片方式，json格式"'),
+            ('type', 'varchar(20) default "in" comment "知识库类型，内部和外部 in/out"')
         ],
         'indexes': [
             ('idx_ragid', 'ragid'),
@@ -189,6 +190,27 @@ file = {
 }
 
 
+agent = {
+        'columns': [
+            ('id', 'int auto_increment primary key'),
+            ('appid', 'varchar(20) default "" comment "appid"'),
+            ('name', 'varchar(200) default "" comment "智能体名称"'),
+            ('agentid', 'varchar(20) default "" comment "智能体id"'),
+            ('icon', 'varchar(20) default "" comment "图标名"'),
+            ('remarks', 'varchar(100) default "" comment "智能体描述"'),
+            ('time', 'varchar(20) default "" comment "更新时间"'),
+            ('user', 'varchar(50) default "" comment "创建人"'),
+            ('department', 'varchar(50) default "" comment "部门"'),
+            ('state', 'varchar(5) default "t" comment "智能体状态，t为开，f为关，默认t"'),
+            ('data', 'text default "{}" comment "智能体配置数据,以json格式存储"')
+        ],
+        'indexes': [
+            ('idx_agentid', 'agentid'),
+            ('idx_appid_user', 'appid, user')
+        ]
+}
+
+
 
 
 '''' 表结构总数据  '''
@@ -198,7 +220,8 @@ TABLE_DEFINITIONS = {
     'user': user,  # 用户表
     'zydict': zydict,  # 数据字典表
     'rag': rag,  # rag知识库表
-    'file': file,  # 数据字典表
+    'file': file,  # 文件表
+    'agent': agent,  # 智能体
 }
 
 

@@ -7,7 +7,7 @@ import time
 import traceback
 
 from db.my import msqlc, msqlzsg
-from mod.file import openfile, writefile  # 文件打开和写入
+from mod.tool import openfile, writefile  # 文件打开和写入
 
 '''日志'''
 

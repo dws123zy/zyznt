@@ -19,6 +19,9 @@ from data.data import tokenac, get_filter, get_zydict, get_rag
 from mod.file import fileanalysis, partjx, zyembd
 
 
+'''此模块用于rag知识库数据配置、查询与管理'''
+
+
 '''日志'''
 
 logger = logging.getLogger(__name__)
@@ -46,7 +49,26 @@ BaseModel
 
 frozen  是否必填，如果非必填，在这个位值给个默认值即可
 description 描述
+
+
+表单、表头、检索项统一定义标准：
+
+字段 ： field
+显示文本：text
+是否显示：show  值为f时不显示，其它都显示
+是否必填：required  值为t时必填，其它都不是必填
+是否可修改：update  值为f时不可修改，其它可修改
+类型：type（select下拉，文本框text、输入框input、split rag的文本分段、search rag的向量检索、）
+默认值：default
+字段的描述：placeholder
+
+
+下拉选项：options
+下拉显示：label
+下拉值：value
+
 '''
+
 
 '''统一总入参格式类定义'''
 
@@ -75,7 +97,7 @@ class cxzharg(publicarg):  # 通用查询类组合，公共+data
 
 '''rag动态检索项查询接口'''
 
-@router.post("/filter/{cmd}", tags=["rag动态检索项获取接口"])
+@router.post("/filter/{cmd}", tags=["动态检索项获取接口,'file 文件', 'rag知识库', 'part文本段', agent智能体"])
 def getfilter(mydata: publicarg, cmd: str):
     try:
         data_dict = mydata.model_dump()
@@ -85,7 +107,7 @@ def getfilter(mydata: publicarg, cmd: str):
             logger.warning(f'token验证失败')
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         # 处理cmd，返回对应的检索项数据
-        if cmd in ['file', 'rag']:  # 按用户和cmd获取检索项
+        if cmd in ['file', 'rag', 'part']:  # 按用户和cmd获取检索项
             filterdata = get_filter(cmd, data_dict.get('user', ''))
             return {"msg": "success", "code": "200", "data": {"filter": filterdata}}
         elif cmd in ['cs']:  # 按cmd获取检索项
@@ -136,11 +158,11 @@ def rag_get(mydata: cxzharg):
         for d in datac:
             try:
                 if d.get('split'):
-                    d['split'] = json.loads(d['split'])
+                    d['split'] = eval(d['split'])
                 if d.get('search'):
-                    d['search'] = json.loads(d['search'])
+                    d['search'] = eval(d['search'])
             except Exception as e:
-                logger.error(f" rag查询时json.loads错误: {e}")
+                logger.error(f" rag查询时转字典错误: {e}")
                 logger.error(traceback.format_exc())
 
         # 获取表单数据form
@@ -338,15 +360,19 @@ def file_get(mydata: cxzharg):
         for d in datac:
             try:
                 if d.get('split'):
-                    d['split'] = json.loads(d['split'])
+                    d['split'] = eval(d['split'])
             except Exception as e:
-                logger.error(f" 文件查询时json.loads错误: {e}")
+                logger.error(f" 文件查询时转字典错误: {e}")
                 logger.error(traceback.format_exc())
 
         # 获取表头
         tbdata = get_zydict('tb', 'file_tb')
+        fileformat = get_zydict('file', 'fileformat')
+        keys_list = list(fileformat.keys())  # 获取支持的文件格式
+        keys_list.remove("size")  # size不是文件格式，所以不用再返回了
         return {"msg": "success", "code": "200",
-                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit'), "tb": tbdata}}
+                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit'), "tb": tbdata,
+                         "fileformat":  keys_list, "size":fileformat.get('size', 10)}}
     except Exception as e:
         logger.error(f"文件查询接口错误: {e}")
         logger.error(traceback.format_exc())
@@ -442,7 +468,7 @@ def file_update(mydata: filezgsarg):
         # 把部分字段值的json字符串转字典
         try:
             if data2.get('split'):
-                data2['split'] = json.loads(data2['split'])
+                data2['split'] = eval(data2['split'])
         except Exception as e:
             logger.error(f" rag修改时json转str错误: {e}")
             logger.error(traceback.format_exc())
@@ -709,7 +735,7 @@ class ragvarg(publicarg):  # rag知识搜索
     data: vdataarg5
 
 
-'''rag知识搜索功能，向量、稀疏向量计算'''
+'''rag知识搜索功能，向量、稀疏向量计算相似度+搜索'''
 
 @router.api_route("/rag/search", methods=["POST"], tags=["rag知识搜索"])
 def rag_search(mydata: ragvarg):

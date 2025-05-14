@@ -13,11 +13,12 @@ import os
 logger = logging.getLogger(__name__)
 
 
-'''全局变量'''
+
+'''
 api_key = ''
 base_url = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 model = 'qwen2.5:7b'
-'''
+
 # 通过 messages 数组实现上下文管理
 messages = [
     {'role': 'system', 'content': str(dy)},
@@ -40,12 +41,9 @@ base_url='https://ark.cn-beijing.volces.com/api/v3',  # 火山
 
 
 
-
-
-
 '''openai-sdk-llm大模型'''
 
-def openai_llm(msg, apikey=api_key, url=base_url, mod = model, tools=None, temperature=0.9, stream=True):
+def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.9, stream=True):
     try:
         client = OpenAI(
             api_key = apikey,

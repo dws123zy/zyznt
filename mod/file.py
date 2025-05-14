@@ -31,16 +31,18 @@ filefpool = ThreadPoolExecutor(max_workers=9)
 
 '''获取文件读取模块配置'''
 
-filemod = [{'fun_name': 'read_file', 'dir': 'mod.file2text.file2text'},
-           {'fun_name': 'read_pdf', 'dir': 'mod.file2text.file2text'},
-           {'fun_name': 'read_docx', 'dir': 'mod.file2text.file2text'},
-            {'fun_name': 'read_excel', 'dir': 'mod.file2text.file2text'},
-            {'fun_name': 'read_ppt', 'dir': 'mod.file2text.file2text'},
-            {'fun_name': 'read_csv', 'dir': 'mod.file2text.file2text'},
-           ]   # 所有文件模块
+# filemod = [{'fun_name': 'read_file', 'dir': 'mod.file2text.file2text'},
+#            {'fun_name': 'read_pdf', 'dir': 'mod.file2text.file2text'},
+#            {'fun_name': 'read_docx', 'dir': 'mod.file2text.file2text'},
+#             {'fun_name': 'read_excel', 'dir': 'mod.file2text.file2text'},
+#             {'fun_name': 'read_ppt', 'dir': 'mod.file2text.file2text'},
+#             {'fun_name': 'read_csv', 'dir': 'mod.file2text.file2text'},
+#            ]   # 所有文件模块
+filemod = get_zydict('file', 'filemod')
 
-fileformat = {'docx': 'read_docx', 'pdf': 'read_pdf', 'xlsx': 'read_excel', 'pptx': 'read_ppt', 'csv': 'read_csv',
-              'txt': 'read_file', 'py': 'read_file', }
+# fileformat = {'docx': 'read_docx', 'pdf': 'read_pdf', 'xlsx': 'read_excel', 'pptx': 'read_ppt', 'csv': 'read_csv',
+#               'txt': 'read_file', 'py': 'read_file', }
+fileformat = get_zydict('file', 'fileformat')
 
 
 '''动态加载文件读取模块'''

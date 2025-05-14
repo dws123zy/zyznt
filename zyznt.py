@@ -14,6 +14,8 @@ import coloredlogs
 # 导入api子模块
 from api import logon
 from api import rag
+from api import agent
+from api import agentapi
 
 '''定义日志程序'''
 
@@ -117,6 +119,8 @@ app.add_middleware(
 
 app.include_router(logon.router)  # 引入登录、登出子路由
 app.include_router(rag.router)  # 引入rag知识库相关子路由
+app.include_router(agent.router)  # 引入agent智能体相关子路由
+app.include_router(agentapi.router)  # 引入agent智能体交互运行相关子路由
 
 
 

@@ -17,6 +17,9 @@ from mod.tool import openfile, writefile  # 文件打开和写入
 from data.data import logonac
 
 
+'''此模块用于用户登录管理'''
+
+
 '''日志'''
 
 logger = logging.getLogger(__name__)

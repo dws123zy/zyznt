@@ -14,7 +14,7 @@
         "children": [
             {
                 "path": "rag",
-                "component": "rag/rag",
+                "component": "rag/rag/index",
                 "name": "rag",
                 "meta": {
                     "title": "RAG知识库",
@@ -26,8 +26,34 @@
                 }
             },
             {
+                "path": "rag-info",
+                "component": "rag/rag/info",
+                "name": "RagInfo",
+                "meta": {
+                    "title": "数据集",
+                    "icon": "el-icon-User",
+                    "hidden": true,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
+                "path": "rag-config",
+                "component": "rag/rag/config",
+                "name": "RagConfig",
+                "meta": {
+                    "title": "知识库配置",
+                    "icon": "el-icon-User",
+                    "hidden": true,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
                 "path": "search",
-                "component": "rag/search",
+                "component": "rag/search/index",
                 "name": "search",
                 "meta": {
                     "title": "搜索知识",
@@ -40,7 +66,7 @@
             },
             {
                 "path": "file",
-                "component": "rag/file",
+                "component": "rag/file/index",
                 "name": "file",
                 "meta": {
                     "title": "文件管理",
@@ -53,7 +79,7 @@
             },
             {
                 "path": "data",
-                "component": "rag/data",
+                "component": "rag/data/index",
                 "name": "data",
                 "meta": {
                     "title": "数据集",
@@ -81,7 +107,7 @@
         "children": [
             {
                 "path": "agent",
-                "component": "agent/agent",
+                "component": "agent/agent/index",
                 "name": "agent",
                 "meta": {
                     "title": "智能体agent",
@@ -94,7 +120,7 @@
             },
             {
                 "path": "agentflow",
-                "component": "agent/agentflow",
+                "component": "agent/agentflow/index",
                 "name": "agentflow",
                 "meta": {
                     "title": "智能体流",
@@ -122,7 +148,7 @@
         "children": [
             {
                 "path": "rag",
-                "component": "mms/imagetext",
+                "component": "mms/imagetext/index",
                 "name": "mms",
                 "meta": {
                     "title": "图文多态",
@@ -135,7 +161,7 @@
             },
             {
                 "path": "image",
-                "component": "mms/image",
+                "component": "mms/image/index",
                 "name": "image",
                 "meta": {
                     "title": "图片多态",
@@ -148,7 +174,7 @@
             },
             {
                 "path": "audio",
-                "component": "mms/audio",
+                "component": "mms/audio/index",
                 "name": "audio",
                 "meta": {
                     "title": "音频多态",
@@ -161,7 +187,7 @@
             },
             {
                 "path": "recommend",
-                "component": "mms/recommend",
+                "component": "mms/recommend/index",
                 "name": "recommend",
                 "meta": {
                     "title": "推荐多态",

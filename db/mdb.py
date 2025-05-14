@@ -182,6 +182,7 @@ file = {
             ('metadata', 'varchar(200) default "{}" comment "元数据，json格式"'),
             ('type', 'varchar(10) default "file" comment "数据类型，文件/网关url/录入/文件url，默认文件"'),
             ('number', 'varchar(30) default "0" comment "文件切片后的总数量"'),
+            ('text', 'text default "" comment "文档文本数据，用于只提取内容不转向量的文件使用"')
         ],
         'indexes': [
             ('idx_fileid', 'fileid'),

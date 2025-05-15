@@ -32,6 +32,10 @@ zydict = {}
 
 ragdata = {}
 
+'''agent智能体数据'''
+
+agentdata = {}
+
 
 '''cd菜单数据'''
 
@@ -164,6 +168,32 @@ def loadrag():
 loadrag()  # 加载rag数据
 
 
+'''从数据库加载agent智能体数据'''
+
+def loadagent():
+    try:
+        # 执行SQL语句
+        sqla = "select * from agent"
+        datacagent = msqlc(sqla)
+        if datacagent:
+            for i in datacagent:
+                edata = eval(i['data'])
+                agentdata[i['agentid']] = i
+                agentdata[i['agentid']]['data'] = edata
+            logger.warning(f'reload agent成功={agentdata}')
+            return 200
+        else:
+            logger.warning('错误，未查到agent智能体数据，reload失败')
+            return 0
+    except Exception as sqlload:
+        logger.error("load agent错误:")
+        logger.error(sqlload)
+        logger.error(traceback.format_exc())
+        return 0
+
+
+loadagent()  # 加载agent数据
+
 
 '''验证码图片校验'''
 
@@ -291,7 +321,37 @@ def get_rag(ragid):
         return {}
 
 
+'''根据agentid获取agent配置数据'''
 
+def get_agent(agentid):
+    try:
+        if agentid and agentid in agentdata:
+            return agentdata.get(agentid, {})
+        return {}  # 没找到数据，返回空字典
+    except Exception as e:
+        logger.error({"获取agentdata错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return {}
+
+
+
+'''验证agent请求合法性'''
+
+def agent_ac(agentid, apikey):
+    try:
+        if agentid in apikey:
+            if agentid in agentdata and apikey in zydict:
+                return True
+            else:
+                return False
+        else:
+            return False
+    except Exception as e:
+        logger.error({"agent ac错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return False
 
 
 

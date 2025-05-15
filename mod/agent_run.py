@@ -1,0 +1,222 @@
+# _*_coding:utf-8 _*_
+
+import traceback
+import time
+import logging
+import threading
+import importlib
+import os
+import httpx
+from concurrent.futures import ThreadPoolExecutor  # 线程池
+from fastapi import Request
+import asyncio
+
+# 本地模块
+from mod import textsplit
+from db.mv import insert_data
+from db import my, mv
+from data.data import get_zydict, agent_ac, get_agent, get_rag
+from mod.file import zyembd
+from mod.llm import openai_llm, openai_llm_stream
+
+
+'''文件解析模块'''
+
+
+'''日志'''
+
+logger = logging.getLogger(__name__)
+
+
+'''初始化线程池'''
+
+agent_pool = ThreadPoolExecutor(max_workers=9)
+
+
+'''智能体rag知识库搜索'''
+
+
+def agent_rag_search(data):
+    try:
+        # 获取检索条件
+        # filterdata = data.get('filter', {})
+        raglist = data.get('rag').split('/')
+        rag_text = []
+        for ragid in raglist:
+            try:
+                # 获取rag配置数据
+                ragdata = get_rag(ragid)
+                search_fun = ragdata.get('search', {}).get('search_fun', 'vector')
+                # 获取embedding数据
+                embdid = ragdata.get('embedding').split('/')[1] if ragdata.get('embedding') else 'bge-large-zh-v1.5'
+                embddata = get_zydict('embd', embdid)
+                datac = []
+                logger.warning(f'获取到的数据:search_fun={search_fun}, embddata={embddata}')
+                if search_fun in ['vector', 'sparse']:  # 单向量搜索
+                    if search_fun in ['vector']:  # 密集向量搜索
+                        logger.warning(f'向量搜索开始')
+                        # 把text转为向量后传入搜索函数
+                        textv = zyembd(data.get('text', ''), embddata)
+                        datac = mv.vector_search(ragdata.get('ragid', ''), [textv], 'vector',
+                                                 limit=data.get('limit', 10), radius=data.get('score', 0.1))
+                    else:  # 稀疏向量搜索
+                        logger.warning(f'稀疏向量搜索开始')
+                        datac = mv.vector_search(ragdata.get('ragid', ''), [data.get('text', '')], 'sparse',
+                                                 limit=data.get('limit', 10),  radius=data.get('score', 0.1))
+                elif search_fun in ['vs']:  # 混合搜索
+                    logger.warning(f'混合搜索开始')
+                    # 把text转为向量后传入搜索函数
+                    textv = zyembd(data.get('text', ''), embddata)
+                    # 组合重排序
+                    rerank = 'RRFRanker'
+                    rrv = '60'
+                    search_data = ragdata.get('search', {})
+                    if 'wr' in search_data:
+                        rrv = search_data.get('wr', '0.8/0.5')
+                        rerank = 'WeightedRanker'
+                    elif 'rr' in search_data:
+                        rrv = search_data.get('rr', '60')
+                        rerank = 'RRFRanker'
+                    # 执行混合搜索
+                    datac = mv.hybrid_search(ragdata.get('ragid', ''), [textv], [data.get('text', '')],
+                                         limit=data.get('limit', 5), reranking=rerank, rrv=rrv)
+                logger.warning(f'搜索结果={datac}')
+                if datac:
+                    rag_text.append(datac)  # 添加到列表中
+            except Exception as e:
+                logger.error(f" rag知识搜索错误: {e}")
+                logger.error(traceback.format_exc())
+
+        return '\n'.join('\n'.join(r) for r in rag_text)
+    except Exception as e:
+        logger.error(f"rag知识搜索错误: {e}")
+        logger.error(traceback.format_exc())
+        return ''
+
+
+
+
+'''work agent工作处理函数'''
+
+async def agent_work(q_data):
+    try:
+        '''使用agentid拿到智能体配置数据'''
+        agent = get_agent(q_data.get('agentid', {})).get('data', {})
+        if agent:
+            ragtext = '空'
+            q_text = q_data.get('msg', [])[-1].get('content', '')
+            # 处理rag知识搜索
+            if agent.get('rag', ''):  # 有值说明有配置，要查rag
+                if q_data.get('msg', []):
+                    if q_text in ['你好', '您好', '你叫什么名字', '你是谁', 'hi', 'hello']:
+                        logger.warning(f'用户常规性问候，无需查询rag')
+                        return ''
+                    else:
+                        ragtext = agent_rag_search({'text': q_text, 'rag': agent.get('rag', '')})
+            # 网页搜索
+            if agent.get('website', ''):
+                logger.warning(f'用户请求网页搜索')
+            # 文件知识
+            if agent.get('file', ''):
+                logger.warning(f'用户请求文件知识')
+
+            # 获取大模型LLM配置数据
+            llmdata = get_zydict('llm', agent.get('llm', ''))
+
+            # 组合msg
+            msg = []
+            if agent.get('prompt'):  # 增加系统提示词到msg中
+                msg.append({'role': 'system', 'content': agent.get('prompt', '')})
+            if agent.get('context'):  # 增加上下文到msg中
+                msg.append({'role': 'system', 'content': agent.get('context', '')})
+            # 增加本次消息列表到msg中
+            msg.extend(q_data.get('msg', []))
+            if agent.get('rag', ''):  # 增加rag搜索结果到msg中
+                msg.append({'role': 'system', 'content': f'根据用户问题{q_text}，查到的外部知识为：{ragtext}'})
+            '''
+            # 数据组合
+            msg, apikey, url, mod, tools = None, temperature = 0.9, stream = True
+            '''
+            rdata = {
+                'msg': msg,
+                'apikey': llmdata.get('apikey', ''),
+                'sdk': llmdata.get('sdk', 'openai'),
+                'url': llmdata.get('url', ''),
+                'mod': llmdata.get('module', ''),
+                'tools': agent.get('tools', ''),
+                'temperature': agent.get('temperature', 0.9),
+                'stream': agent.get('stream', True)
+            }
+            # 返回数据
+            return rdata
+
+
+        else:
+            logger.warning(f'未找到智能体配置')
+            return ''
+    except Exception as e:
+        logger.error(f'agent工作处理函数错误: {e}')
+        logger.error(traceback.format_exc())
+        return ''
+
+
+
+'''agent流式回复处理模块'''
+
+async def agent_stream(request: Request, data):
+    try:
+        logger.warning(f'data={data}')
+        # 验证请求合法性
+        if not agent_ac(data.get('agentid', ''), data.get('apikey', '')):
+            logger.warning(f'agent请求验证失败')
+            yield f"data: agent验证失败\n\n"
+            return
+        '''调用函数处理agent配置work，返回以下参数用于调用大模型
+        msg, apikey, url, mod, tools=None, temperature=0.9, stream=True  sdk
+        '''
+        workdata = agent_work(data)
+        if workdata:
+            # 调用大模型
+            llmsdk = workdata.get('sdk', '')
+            if llmsdk in ['openai']:
+                # 调用openai大模型
+                logger.warning(f'使用openai-sdk调用大模型')
+                for chunk in openai_llm_stream(workdata.get('msg', []), workdata.get('apikey', ''), workdata.get('url', ''),
+                                        workdata.get('mod', ''), workdata.get('tools', None),
+                                        workdata.get('temperature', 0.9), workdata.get('stream', True)):
+                    yield f"data: {chunk.choices[0].delta.get('content', '')}\n\n"
+
+            elif llmsdk in  ['ollama']:
+                # 调用llm大模型
+                logger.warning(f'从ollama调用llm大模型')
+            else:
+                logger.warning(f'不支持的llm模型={llmsdk}')
+                yield f"data: 不支持的llm模型={llmsdk}\n\n"
+        else:
+            logger.warning(f'agent工作处理函数错误')
+            yield f"data: agent工作处理函数错误\n\n"
+
+        # for i in range(10):
+        #     if await request.is_disconnected():
+        #         print("客户端断开连接")
+        #         break
+        #
+        #     data = f"这是第 {i+1} 条消息"
+        # yield f"data: {data}\n\n"
+        #     await asyncio.sleep(1)
+    except Exception as e:
+        logger.error(f'agent_stream错误信息：{e}')
+        logger.error(traceback.format_exc())
+        yield f"data: 错误\n\n"
+
+
+
+
+
+
+
+
+
+
+
+

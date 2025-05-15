@@ -1,7 +1,8 @@
 # _*_coding:utf-8 _*_
 
 import time
-from fastapi import APIRouter, File, UploadFile, Form, Depends, HTTPException, Response
+from fastapi import APIRouter, File, UploadFile, Form, Depends, HTTPException, Response, Request
+from fastapi.responses import StreamingResponse
 import logging
 from pydantic import BaseModel, Field
 import os
@@ -12,11 +13,13 @@ import random
 import string
 import copy
 from typing import Union
+import asyncio
 
 # 本地模块
 from db import my, mv
 from data.data import tokenac, get_filter, get_zydict, get_rag
 from mod.file import fileanalysis, partjx, zyembd
+from mod.agent_run import agent_stream
 
 
 '''此模块用于agent智能体运行与交互，处理主要处理网络sse websocket post api接口交互，前端和api接口调用'''
@@ -106,9 +109,30 @@ def agent_run(mydata: cxzharg):
 
 
 
+'''EventSource原生流式接口'''
 
-
-
+@router.get("/agent/event", response_class=StreamingResponse, tags=["智能体sse交互event"])
+async def agent_event(request: Request, agentid: str='', apikey: str='', user: str='', session: str='', msg: str='[]'):
+    try:
+        data_dict = {
+            'agentid': agentid,  # 智能体id
+            'apikey': apikey,
+            'user': user,
+            'msg': eval(msg),
+            'session': session  # 会话id
+        }
+        logger.warning(f'收到的请求数据={data_dict}')
+        return StreamingResponse(
+            agent_stream(request, data_dict),  # 传递 request 参数
+            media_type="text/event-stream"
+        )
+    except Exception as e:
+        print(f"agent_event错误: {e}")
+        print(traceback.format_exc())
+        return StreamingResponse(
+            f"data: msg:error, 出现错误 \n\n",  # 传递 request 参数
+            media_type="text/event-stream"
+        )
 
 
 

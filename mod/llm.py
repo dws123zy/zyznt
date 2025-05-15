@@ -43,8 +43,11 @@ base_url='https://ark.cn-beijing.volces.com/api/v3',  # 火山
 
 '''openai-sdk-llm大模型'''
 
-def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.9, stream=True):
+def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.9):
     try:
+        if not tools:
+            tools = None
+        # 组合客户端
         client = OpenAI(
             api_key = apikey,
             base_url=url,
@@ -55,7 +58,7 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.9, stream=True):
             temperature=temperature,  # 热度
             messages=msg,  # 消息列表、提示词、上下文
             tools=tools,  # 工具集
-            stream=stream  # 流式输出
+            # stream=stream  # 流式输出
         )
 
         return completion
@@ -92,6 +95,51 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.9, stream=True):
 
 
 
+'''openai-sdk-llm大模型'''
+
+def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, stream=True):
+    try:
+        if not tools:
+            tools = None
+        # 组合客户端
+        client = OpenAI(
+            api_key = apikey,
+            base_url=url,
+        )
+
+        # 执行LLM请求
+        completion = client.chat.completions.create(
+            model=mod,
+            temperature=temperature,  # 热度
+            messages=msg,  # 消息列表、提示词、上下文
+            tools=tools,  # 工具集
+            stream=stream  # 流式输出
+        )
+        # 流式获取
+        # nrlist = ''
+        # lst = time.time()
+        # print('开始获取流=', lst)
+        if completion:
+            for chunk in completion:
+                nr = json.loads(chunk.model_dump_json())
+                wb = nr.get('choices')
+                if wb:
+
+                    if nr.get('choices')[0]['delta']['content']:
+                        print('时间', time.time(), '内容=', nr.get('choices')[0]['delta']['content'])
+                        yield nr.get('choices')[0]['delta']['content']
+        else:
+            yield ''
+
+        # lent = time.time()
+        # print('获取流完成，所用时间=', lent - lst)
+
+        # return completion
+    except Exception as e:
+        logger.error({"openai_llm stream错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        yield ''
 
 
 

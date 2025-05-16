@@ -56,15 +56,69 @@ ab = '900100'
 
 print(ab[:2])
 
+llm = {'id': 'chatcmpl-32a3cda6-d359-9b5e-842b-67e2f284eed8',
+       'choices': [{'finish_reason': 'tool_calls', 'index': 0, 'logprobs': None,
+                    'message': {'content': '', 'refusal': None, 'role': 'assistant', 'annotations': None, 'audio': None, 'function_call': None,
+                                'tool_calls': [{'id': 'call_dc913fd551ef4d7e9fc7b0', 'function': {'arguments': '{}', 'name': 'get_current_time/ksdewlkjfoi156'}, 'type': 'function', 'index': 0}]
+                                }
+                    }], 'created': 1747360072, 'model': 'qwen2.5-7b-instruct-1m', 'object': 'chat.completion', 'service_tier': None, 'system_fingerprint': None, 'usage': {'completion_tokens': 24, 'prompt_tokens': 384, 'total_tokens': 408, 'completion_tokens_details': None, 'prompt_tokens_details': None}}
+
+nr={'id': 'chatcmpl-da9491ff-112b-998e-8384-311a325a059a',
+    'choices': [{'delta': {'content': '好的，您的', 'function_call': None, 'refusal': None, 'role': None, 'tool_calls': None}, 'finish_reason': None, 'index': 0, 'logprobs': None}], 'created': 1747364003, 'model': 'qwen-max-2025-01-25', 'object': 'chat.completion.chunk', 'service_tier': None, 'system_fingerprint': None, 'usage': None}
 
 
+nrlist = [{'id': 'chatcmpl-285f0b2d-1647-9751-b886-30c391077f83', 'choices': [{'delta': {'content': None, 'function_call': None, 'refusal': None, 'role': 'assistant', 'tool_calls': [{'index': 0, 'id': 'call_9d466125dfa140b4b7c0a5', 'function': {'arguments': '{"location":', 'name': 'get_current_weather'}, 'type': 'function'}]}, 'finish_reason': None, 'index': 0, 'logprobs': None}], 'created': 1747365353, 'model': 'qwen2.5-7b-instruct-1m', 'object': 'chat.completion.chunk', 'service_tier': None, 'system_fingerprint': None, 'usage': None},
+          {'id': 'chatcmpl-285f0b2d-1647-9751-b886-30c391077f83', 'choices': [{'delta': {'content': None, 'function_call': None, 'refusal': None, 'role': None, 'tool_calls': [{'index': 0, 'id': '', 'function': {'arguments': ' "周口"}', 'name': ''}, 'type': 'function'}]}, 'finish_reason': None, 'index': 0, 'logprobs': None}], 'created': 1747365353, 'model': 'qwen2.5-7b-instruct-1m', 'object': 'chat.completion.chunk', 'service_tier': None, 'system_fingerprint': None, 'usage': None},
+          {'id': 'chatcmpl-285f0b2d-1647-9751-b886-30c391077f83', 'choices': [{'delta': {'content': None, 'function_call': None, 'refusal': None, 'role': None, 'tool_calls': [{'index': 0, 'id': '', 'function': {'arguments': None, 'name': None}, 'type': 'function'}]}, 'finish_reason': None, 'index': 0, 'logprobs': None}], 'created': 1747365353, 'model': 'qwen2.5-7b-instruct-1m', 'object': 'chat.completion.chunk', 'service_tier': None, 'system_fingerprint': None, 'usage': None}]
+
+import json
+
+# 初始化累积工具调用的数组
+accumulated_tool_calls = []
+
+for chunk_dict in nrlist:
+    # 将 chunk 转换为 JSON 字符串，再解析为字典
+    # chunk_dict = json.loads(chunk.model_dump_json())  # 关键步骤
+    if chunk_dict.get("choices"):
+        for choice in chunk_dict["choices"]:
+            delta = choice.get("delta", {})
+            tool_calls = delta.get("tool_calls", [])
+            for tool_call in tool_calls:
+                index = tool_call.get("index", 0)
+                # 扩展数组以容纳新索引
+                while len(accumulated_tool_calls) <= index:
+                    accumulated_tool_calls.append({
+                        "id": "",
+                        "type": "function",
+                        "function": {
+                            "name": "",
+                            "arguments": ""
+                        }
+                    })
+                current_tool_call = accumulated_tool_calls[index]
+
+                # 合并 id
+                if "id" in tool_call and tool_call["id"]:
+                    current_tool_call["id"] += tool_call["id"]
+                # 合并 function name
+                if "function" in tool_call and "name" in tool_call["function"] and tool_call["function"]["name"]:
+                    current_tool_call["function"]["name"] += tool_call["function"]["name"]
+                # 合并 arguments
+                if "function" in tool_call and "arguments" in tool_call["function"] and tool_call["function"]["arguments"]:
+                    current_tool_call["function"]["arguments"] += tool_call["function"]["arguments"]
+
+# 流处理结束后，提取工具调用信息
+for tool_call in accumulated_tool_calls:
+    if tool_call["function"]["arguments"]:
+        try:
+            args = json.loads(tool_call["function"]["arguments"])
+            print(f"调用工具 {tool_call['function']['name']}，参数：{args}")
+            # 执行工具调用，例如：get_weather(city=args["city"])
+        except json.JSONDecodeError:
+            print("参数解析失败:", tool_call["function"]["arguments"])
 
 
-
-
-
-
-
+print(accumulated_tool_calls)
 
 
 

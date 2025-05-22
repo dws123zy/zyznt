@@ -469,7 +469,54 @@ def writefile(name, data):
 
 
 
+'''文件内容读取函数'''
 
+def file_read(filename, ragid, appid):
+    try:
+        logger.warning(f'开始解析文件，文件数据={filename}')
+        # 获取文件路径
+        file_path = f"../file/{appid}/{ragid}/{filename}"
+        logger.warning(f'文件路径={file_path}')
+        # 获取文件扩展名
+        file_extension = os.path.splitext(file_path)[1].replace('.', '')
+        logger.warning(f'文件格式={file_extension}')
+        if file_extension in fileformat:
+            file_fun = fileformat.get(file_extension, 'read_file')
+            logger.warning(f'file_fun={file_fun}')
+        else:
+            logger.warning(f'不支持的文件格式{file_extension}，文件数据={filename}')
+            return 0
+        # 获取文件大小，超过100M的另外处理
+        file_size = os.path.getsize(file_path)/(1024*1024)   # 转为M
+
+        # 读取文件内容
+        datac = []
+        if file_size > 10:
+            logger.warning(f'文件大小超过100M暂不处理，文件数据={file_size}')
+            return ''
+        else:
+            if '/' in file_fun:
+                file_fun2 = file_fun.split('/')
+                file_fun = file_fun2[0]
+                encoding = file_fun2[1]
+                datac = modlist[file_fun](file_path, encoding)
+            else:
+                datac = modlist[file_fun](file_path)
+
+        # 处理内容
+        if datac:
+            logger.warning(f'文件内容读取成功={datac}')
+            # 返回结果
+            return str(datac)
+        else:
+            logger.warning(f'文件内容读取失败，文件数据={filename}')
+            return ''
+
+    except Exception as e:
+        logger.error(f'文件读取失败，文件数据={filename}')
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return ''
 
 
 

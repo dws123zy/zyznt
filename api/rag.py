@@ -16,7 +16,7 @@ from typing import Union
 # 本地模块
 from db import my, mv
 from data.data import tokenac, get_filter, get_zydict, get_rag
-from mod.file import fileanalysis, partjx, zyembd
+from mod.file import fileanalysis, partjx, zyembd, file_read
 
 
 '''此模块用于rag知识库数据配置、查询与管理'''
@@ -428,7 +428,10 @@ async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)
                 characters = string.ascii_letters + string.digits
                 fileid = str(int(time.time()*1000))+''.join(random.choice(characters) for _ in range(3))
                 ragid = data_dict.get('data', {}).get('ragid') if data_dict.get('data', {}).get('ragid') else ''
-                filedata = {'name': f.get('filename', ''), 'size': f.get('size', 0), 'time': nowtime,
+                text = ''
+                if data_dict.get('data', {}).get('type') in ['agent']:
+                    text = file_read(f.get('filename', ''), ragid, data_dict.get('appid', ''))
+                filedata = {'name': f.get('filename', ''), 'size': f.get('size', 0), 'time': nowtime, 'text': text,
                             'metadata': str({"format": f.get('format', '')}), 'appid': data_dict.get('appid', ''),
                             'user': data_dict.get('user', ''), 'ragid': ragid, 'fileid': fileid,
                             'type': data_dict.get('type', 'file'), 'split': str(data_dict.get("split", ''))}
@@ -560,7 +563,7 @@ def file_analysis(mydata: filejxarg):
 
 '''向量文本块part查询'''
 
-@router.api_route("/part/get", methods=["POST", "PUT"], tags=["文本段查询"])
+@router.api_route("/part/get", methods=["POST"], tags=["文本段查询"])
 def part_get(mydata: cxzharg):
     try:
         data_dict = mydata.model_dump()
@@ -609,7 +612,7 @@ class partzgsarg(publicarg):  # 通用增加和修改组合，公共+data
 
 '''向量文本块part新增'''
 
-@router.api_route("/part/add", methods=["POST", "PUT"], tags=["文本段新增"])
+@router.api_route("/part/add", methods=["POST"], tags=["文本段新增"])
 def part_add(mydata: partzgsarg):
     try:
         data_dict = mydata.model_dump()
@@ -636,7 +639,7 @@ def part_add(mydata: partzgsarg):
 
 '''向量文本块part修改'''
 
-@router.api_route("/part/update", methods=["POST", "PUT"], tags=["文本段修改"])
+@router.api_route("/part/update", methods=["POST"], tags=["文本段修改"])
 def part_update(mydata: partzgsarg):
     try:
         data_dict = mydata.model_dump()
@@ -694,7 +697,7 @@ def part_update(mydata: partzgsarg):
 
 '''向量文本块part删除'''
 
-@router.api_route("/part/del", methods=["POST", "PUT", "DELETE"], tags=["文本段删除"])
+@router.api_route("/part/del", methods=["DELETE"], tags=["文本段删除"])
 def part_del(mydata: partzgsarg):
     try:
         data_dict = mydata.model_dump()

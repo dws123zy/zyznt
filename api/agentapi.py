@@ -1,24 +1,15 @@
 # _*_coding:utf-8 _*_
 
 import time
-from fastapi import APIRouter, File, UploadFile, Form, Depends, HTTPException, Response, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 import logging
 from pydantic import BaseModel, Field
-import os
-from datetime import datetime
-import json
 import traceback
-import random
-import string
-import copy
-from typing import Union
 import asyncio
 
 # 本地模块
-from db import my, mv
-from data.data import tokenac, get_filter, get_zydict, get_rag
-from mod.file import fileanalysis, partjx, zyembd
+from data.data import apikeyac, get_agent
 from mod.agent_run import agent_stream
 
 
@@ -37,71 +28,44 @@ router = APIRouter()
 
 '''统一总入参格式类定义'''
 
-class publicarg(BaseModel):  # 公共参数，所有接口必传
-    user: str = Field(frozen=True, description="用户名")
-    appid: str = Field(frozen=True, description="企业id")
-    token: str = Field(frozen=True, description="验证token")
-    time: str = Field(frozen=True, description="当前时间戳,精确到秒，也就是10位")
-    # data: dict = Field({}, description="交互数据，")
-
-
-class cxdataarg(BaseModel):  # 查询时data中的标准参数
-    filter: dict = Field({}, description="查询条件,检索项，以键值对方式传过来")
-    limit: int = Field(200, description="每页显示的数量")
-    page: int = Field(1, description="页码，第几页")
-
-
-class cxzharg(publicarg):  # 通用查询类组合，公共+data
-    data: cxdataarg
-
-
-'''agent通用新增、修改、删除'''
-
-class agentdataarg3(BaseModel):
-    agentid: str = Field('', description="智能体的id,修改删除时必填")
-    data: dict = Field({}, description="增加或修改的数据，增加修改时必填")
-
-class agentzgsarg(publicarg):  # 通用增加和修改组合，公共+data
-    data: agentdataarg3
+class agentpublicarg(BaseModel):  # 公共参数，所有接口必传
+    user: str = Field('visitor', description="用户名,默认游客visitor")
+    agentid: str = Field(frozen=True, description="对话的智能体id")
+    apikey: str = Field(frozen=True, description="安全验证")
+    session: str = Field('', description="当前对话id")
+    msg: list = Field(frozen=True, description="对话列表")
+    stream: bool = Field(False, description="流式交互")
+    data: dict = Field({}, description="自定义数据")
 
 
 '''******agent智能体运行******'''
 
 '''agent智能体交互接口'''
 
-@router.post("/agent/v1", tags=["agent智能体交互"])
-def agent_run(mydata: cxzharg):
+@router.post("/agent/v1", tags=["agent智能体交互，支持流式sse与非流式"])
+async def agent_stream_post(request: Request, mydata: agentpublicarg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')
         # 验证token、user
-        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
-            logger.warning(f'token验证失败')
-            return {"msg": "token或user验证失败", "code": "403", "data": ""}
-        data = data_dict.get('data', {})
+        appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
+        if not apikeyac(data_dict.get('apikey', ''), appid):
+            logger.warning(f'apikey验证失败')
+            return {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
 
-        # 写sql
-        filterdata = data.get('filter', {})
-        if not filterdata.get('appid', ''):  # 如果检索项中没有appid，则使用当前user的appid
-            filterdata['appid'] = data_dict.get('appid', '')
-        sql = my.sqlc3(filterdata, 'agent', data.get('page'), data.get('limit'), '')
-        datac, nub = my.msqlcxnum(sql)  # 查询数据
-
-        # 把部分字段值的json字符串转字典
-        for d in datac:
-            try:
-                if d.get('data'):
-                    d['data'] = eval(d['data'])
-            except Exception as e:
-                logger.error(f" agent查询时转字典错误: {e}")
-                logger.error(traceback.format_exc())
-
-        # 获取表单数据form
-        formdata = get_zydict('form', 'agent_form')
-
-        return {"msg": "success", "code": "200",
-                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit'),
-                         "form": formdata}}
+        # 判断是否流式返回
+        if data_dict.get('stream', False):
+            logger.warning(f'流式返回')
+            return StreamingResponse(
+                agent_stream(request, data_dict),  # 传递 request 参数
+                media_type="text/event-stream"
+            )
+        else:
+            logger.warning(f'非流式返回')
+            rdata = ''
+            async for a in agent_stream(request, data_dict):
+                rdata = rdata+str(a)
+            return {"msg": "success", "code": "200", "data": rdata}
     except Exception as e:
         logger.error(f"agent交互接口错误: {e}")
         logger.error(traceback.format_exc())
@@ -111,7 +75,7 @@ def agent_run(mydata: cxzharg):
 
 '''EventSource原生流式接口'''
 
-@router.get("/agent/event", response_class=StreamingResponse, tags=["智能体sse交互event"])
+@router.get("/agent/event", response_class=StreamingResponse, tags=["agent智能体event-sse交互"])
 async def agent_event(request: Request, agentid: str='', apikey: str='', user: str='', session: str='', msg: str='[]'):
     try:
         data_dict = {
@@ -122,8 +86,12 @@ async def agent_event(request: Request, agentid: str='', apikey: str='', user: s
             'session': session  # 会话id
         }
         logger.warning(f'收到的请求数据={data_dict}')
+        # 流式响应
+        async def event_generator():
+            async for chunk in agent_stream(request, data_dict):
+                yield f"data: {chunk}\n\n"
         return StreamingResponse(
-            agent_stream(request, data_dict),  # 传递 request 参数
+            event_generator(),
             media_type="text/event-stream"
         )
     except Exception as e:

@@ -1,5 +1,59 @@
 [
     {
+        "path": "/agent",
+        "component": "Layout",
+        "redirect": "/agent/agent",
+        "name": "/agent",
+        "meta": {
+            "title": "智能体agent",
+            "icon": "system",
+            "hidden": false,
+            "alwaysShow": false,
+            "params": ""
+        },
+        "children": [
+            {
+                "path": "agent",
+                "component": "agent/agent/index",
+                "name": "agent",
+                "meta": {
+                    "title": "智能体agent",
+                    "icon": "el-icon-User",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
+                "path": "agentflow",
+                "component": "agent/agentflow/index",
+                "name": "agentflow",
+                "meta": {
+                    "title": "智能体流",
+                    "icon": "role",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+			{
+                "path": "datadict",
+                "component": "agent/datadict/index",
+                "name": "datadict",
+                "meta": {
+                    "title": "数据字典",
+                    "icon": "role",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            }
+        ]
+    },
+	{
         "path": "/rag",
         "component": "Layout",
         "redirect": "/rag/rag",
@@ -84,47 +138,6 @@
                 "meta": {
                     "title": "数据集",
                     "icon": "tree",
-                    "hidden": false,
-                    "keepAlive": true,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            }
-        ]
-    },
-    {
-        "path": "/agent",
-        "component": "Layout",
-        "redirect": "/agent/agent",
-        "name": "/agent",
-        "meta": {
-            "title": "智能体agent",
-            "icon": "system",
-            "hidden": false,
-            "alwaysShow": false,
-            "params": ""
-        },
-        "children": [
-            {
-                "path": "agent",
-                "component": "agent/agent/index",
-                "name": "agent",
-                "meta": {
-                    "title": "智能体agent",
-                    "icon": "el-icon-User",
-                    "hidden": false,
-                    "keepAlive": true,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            },
-            {
-                "path": "agentflow",
-                "component": "agent/agentflow/index",
-                "name": "agentflow",
-                "meta": {
-                    "title": "智能体流",
-                    "icon": "role",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,

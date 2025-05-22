@@ -60,12 +60,14 @@ async def mcp_run(session, cmd, tooldata={}):
 
 async def mcp_client(mcp_data, cmd, tooldata={}):
     try:
+        logger.warning(f"开始执行mcp_client, mcp_data={mcp_data}, cmd={cmd}, tooldata={tooldata}")
         tool_name = tooldata.get('function', {}).get('name', '')
         mcp_type = mcp_data.get('mcp_type', 'http')
-        mcpdata2 = mcp_data.get('mcpServers', {}).get('name', {})
+        mcpServers = mcp_data.get('mcpServers', {})
+        mcpdata2 =mcpServers.get(mcp_data.get('name'), {})
         if mcp_type in ['http', 'streamablehttp']:  # http方式的mcp
             logger.warning(f"开始执行mcp：{mcp_type}, name={tool_name}")
-            return ''
+            return []
 
         elif mcp_type in ['sse']:
             logger.warning(f"开始执行mcp：{mcp_type}, name={tool_name}")
@@ -77,15 +79,15 @@ async def mcp_client(mcp_data, cmd, tooldata={}):
 
         elif mcp_type in ['stdio']:
             logger.warning(f"开始执行mcp：{mcp_type}, name={tool_name}")
-            return ''
+            return []
 
         else:
             logger.warning(f"未知的mcp类型:{mcp_type}")
-            return ''
+            return []
     except Exception as e:
         logger.error(f'mcprun错误信息：{e}')
         logger.error(traceback.format_exc())
-        return ''
+        return []
 
 
 

@@ -197,7 +197,7 @@ agent = {
             ('appid', 'varchar(20) default "" comment "appid"'),
             ('name', 'varchar(200) default "" comment "智能体名称"'),
             ('agentid', 'varchar(20) default "" comment "智能体id"'),
-            ('icon', 'varchar(20) default "" comment "图标名"'),
+            ('icon', 'varchar(20) default "favicon.ico" comment "图标名"'),
             ('remarks', 'varchar(100) default "" comment "智能体描述"'),
             ('time', 'varchar(20) default "" comment "更新时间"'),
             ('user', 'varchar(50) default "" comment "创建人"'),

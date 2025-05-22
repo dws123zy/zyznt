@@ -1,21 +1,14 @@
 # _*_coding:utf-8 _*_
 
 import traceback
-import time
 import logging
-import threading
-import importlib
-import os
-import httpx
 from concurrent.futures import ThreadPoolExecutor  # 线程池
 from fastapi import Request
 import asyncio
 
 # 本地模块
-from mod import textsplit
-from db.mv import insert_data
-from db import my, mv
-from data.data import get_zydict, agent_ac, get_agent, get_rag
+from db import mv, my
+from data.data import get_zydict, apikeyac, get_agent, get_rag
 from mod.file import zyembd
 from mod.llm import openai_llm, openai_llm_stream
 
@@ -117,8 +110,17 @@ async def agent_work(q_data):
             if agent.get('website', ''):
                 logger.warning(f'用户请求网页搜索')
             # 文件知识
+            filetext = ''
             if agent.get('file', ''):
                 logger.warning(f'用户请求文件知识')
+                for f in agent.get('file', '').split('/'):
+                    try:
+                        db_text = my.sqlc3({'fileid': f}, 'file', '1', '1', '')
+                        if db_text and db_text[0].get('text', ''):
+                            filetext += str(db_text[0].get('text', ''))
+                    except Exception as e2:
+                        logger.error(f"文件知识搜索错误: {e2}")
+                        logger.error(traceback.format_exc())
 
             # 获取大模型LLM配置数据
             llmdata = get_zydict('llm', agent.get('llm', ''))
@@ -131,8 +133,10 @@ async def agent_work(q_data):
                 msg.append({'role': 'system', 'content': agent.get('context', '')})
             # 增加本次消息列表到msg中
             msg.extend(q_data.get('msg', []))
-            if agent.get('rag', ''):  # 增加rag搜索结果到msg中
+            if ragtext:  # 增加rag搜索结果到msg中
                 msg.append({'role': 'system', 'content': f'根据用户问题{q_text}，查到的外部知识为：{ragtext}'})
+            if ragtext:  # 增加文件内容到msg中
+                msg.append({'role': 'system', 'content': f'文件内容：{filetext}'})
             '''
             # 数据组合
             msg, apikey, url, mod, tools = None, temperature = 0.9, stream = True
@@ -167,34 +171,35 @@ async def agent_stream(request: Request, data):
     try:
         logger.warning(f'data={data}')
         # 验证请求合法性
-        if not agent_ac(data.get('agentid', ''), data.get('apikey', '')):
+        appid = get_agent(data.get('agentid', {})).get('appid', '')
+        if not apikeyac(data.get('apikey', ''), appid):
             logger.warning(f'agent请求验证失败')
-            yield f"data: agent验证失败\n\n"
+            yield f"agent验证失败\n\n"
             return
         '''调用函数处理agent配置work，返回以下参数用于调用大模型
         msg, apikey, url, mod, tools=None, temperature=0.9, stream=True  sdk
         '''
-        workdata = agent_work(data)
+        workdata = await agent_work(data)
         if workdata:
             # 调用大模型
             llmsdk = workdata.get('sdk', '')
             if llmsdk in ['openai']:
                 # 调用openai大模型
                 logger.warning(f'使用openai-sdk调用大模型')
-                for chunk in openai_llm_stream(workdata.get('msg', []), workdata.get('apikey', ''), workdata.get('url', ''),
+                async for chunk in openai_llm_stream(workdata.get('msg', []), workdata.get('apikey', ''), workdata.get('url', ''),
                                         workdata.get('mod', ''), workdata.get('tools', None),
                                         workdata.get('temperature', 0.9), workdata.get('stream', True)):
-                    yield f"data: {chunk.choices[0].delta.get('content', '')}\n\n"
+                    yield f"{chunk}\n\n"
 
             elif llmsdk in  ['ollama']:
                 # 调用llm大模型
                 logger.warning(f'从ollama调用llm大模型')
             else:
                 logger.warning(f'不支持的llm模型={llmsdk}')
-                yield f"data: 不支持的llm模型={llmsdk}\n\n"
+                yield f"不支持的llm模型={llmsdk}\n\n"
         else:
             logger.warning(f'agent工作处理函数错误')
-            yield f"data: agent工作处理函数错误\n\n"
+            yield f"agent工作处理函数错误\n\n"
 
         # for i in range(10):
         #     if await request.is_disconnected():
@@ -207,7 +212,7 @@ async def agent_stream(request: Request, data):
     except Exception as e:
         logger.error(f'agent_stream错误信息：{e}')
         logger.error(traceback.format_exc())
-        yield f"data: 错误\n\n"
+        yield f"错误\n\n"
 
 
 

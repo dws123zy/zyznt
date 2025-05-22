@@ -266,6 +266,31 @@ def tokenac(token, user):
         return False
 
 
+
+'''验证apikey'''
+
+def apikeyac(apikey, appid):
+    try:
+        logger.warning(f'apikey={apikey}, appid={appid}')
+        if appid in appids:
+            print('appid合法')
+            if apikey in zydict:
+                print('apikey合法')
+                if zydict[apikey]['appid'] in [appid]:
+                    data = zydict[apikey]['data']
+                    print(data)
+                    if data.get('expire', 0) in ['000'] or int(time.time()) < int(data.get('expire', 0)):
+                        print('apikey有效')
+                        return True
+        return False
+    except Exception as e:
+        logger.error({"apikeyac错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return False
+
+
+
 '''根据user、cmd获取检索项'''
 
 def get_filter(cmd, user=''):
@@ -296,6 +321,9 @@ def get_zydict(datatype, cmd, user=''):
                 jsxid = zydict.get(role, {}).get('data', {}).get(datatype, {}).get(cmd, '')
                 if jsxid and jsxid in zydict:
                     return zydict.get(jsxid, {}).get('data', {})
+            elif datatype in ['tool', 'mcp'] and cmd in zydict:  # 此类型的数据返回所有
+                return zydict.get(cmd, {})
+
             elif cmd:  # 只根据cmd获取检索项
                 if cmd in zydict:
                     return zydict.get(cmd, {}).get('data', {})
@@ -335,23 +363,6 @@ def get_agent(agentid):
         return {}
 
 
-
-'''验证agent请求合法性'''
-
-def agent_ac(agentid, apikey):
-    try:
-        if agentid in apikey:
-            if agentid in agentdata and apikey in zydict:
-                return True
-            else:
-                return False
-        else:
-            return False
-    except Exception as e:
-        logger.error({"agent ac错误:": e})
-        logger.error(e)
-        logger.error(traceback.format_exc())
-        return False
 
 
 

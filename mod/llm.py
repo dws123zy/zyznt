@@ -1,11 +1,12 @@
 # _*_coding:utf-8 _*_
 
 from openai import OpenAI
+from openai import AsyncOpenAI
 import logging
 import json
 import time
 import traceback
-import os
+import asyncio
 
 # 本地模块
 from data.data import get_zydict
@@ -79,18 +80,18 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.9):
 
 '''openai-sdk-llm大模型'''
 
-def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, stream=True):
+async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, stream=True):
     try:
         if not tools:
             tools = None
         # 组合客户端
-        client = OpenAI(
+        client = AsyncOpenAI(
             api_key = apikey,
             base_url=url,
         )
 
         # 执行LLM请求
-        completion = client.chat.completions.create(
+        completion = await client.chat.completions.create(
             model=mod,
             temperature=temperature,  # 热度
             messages=msg,  # 消息列表、提示词、上下文
@@ -108,7 +109,7 @@ def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, stream
             # 流式获取
             msg_type = 'text'  # 默认为text，还有个是tool工具调用
             tool_data_chunk = []
-            for chunk in completion:
+            async for chunk in completion:
                 chunk_dict = json.loads(chunk.model_dump_json())
                 choices = chunk_dict.get('choices')
                 if choices:
@@ -132,19 +133,26 @@ def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, stream
             if tool_data_chunk:
                 yield '调用工具中'
                 # 组合获取完整工具调用数据
-                tool_data = parse_tool_data(tool_data_chunk)
+                tool_data = await parse_tool_data(tool_data_chunk)
+                logger.warning(f'解析后的工具数据={tool_data}')
                 if not tool_data:
                     logger.warning('调用工具失败,无工具调用数据')
+                    yield '调用工具失败'
+                    break
                 # 调用工具
-                tool_result = tool_call_result(tool_data)
+                tool_result = await tool_call_result(tool_data)
                 # 组合到msg中返回给大模型
                 delta = tool_data_chunk[0]['choices'][0]['delta']
                 delta['tool_calls'] = tool_data
                 msg.append(delta)  # 增加llm工具调用数据
                 # 增加工具调用结果
-                msg = msg+tool_result
+                if tool_result:
+                    msg = msg+tool_result
+                else:
+                    yield '调用工具失败'
+                    break
                 # 执行LLM请求
-                completion = client.chat.completions.create(
+                completion = await client.chat.completions.create(
                     model=mod,
                     temperature=temperature,  # 热度
                     messages=msg,  # 消息列表、提示词、上下文
@@ -168,8 +176,9 @@ def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, stream
 
 '''解析流式工具数据'''
 
-def parse_tool_data(toollist):
+async def parse_tool_data(toollist):
     try:
+        logger.warning(f"解析流式工具数据={toollist}")
         # 初始化累积工具调用的数组
         accumulated_tool_calls = []
 
@@ -177,30 +186,31 @@ def parse_tool_data(toollist):
             if chunk_dict.get("choices"):
                 for choice in chunk_dict["choices"]:
                     tool_calls = choice.get("delta", {}).get("tool_calls", [])
-                    for tool_call in tool_calls:
-                        index = tool_call.get("index", 0)
-                        # 扩展数组以容纳新索引
-                        while len(accumulated_tool_calls) <= index:
-                            accumulated_tool_calls.append({
-                                "id": "",
-                                "type": "function",
-                                "index": index,
-                                "function": {
-                                    "name": "",
-                                    "arguments": ""
-                                }
-                            })
-                        current_tool_call = accumulated_tool_calls[index]
+                    if tool_calls:
+                        for tool_call in tool_calls:
+                            index = tool_call.get("index", 0)
+                            # 扩展数组以容纳新索引
+                            while len(accumulated_tool_calls) <= index:
+                                accumulated_tool_calls.append({
+                                    "id": "",
+                                    "type": "function",
+                                    "index": index,
+                                    "function": {
+                                        "name": "",
+                                        "arguments": ""
+                                    }
+                                })
+                            current_tool_call = accumulated_tool_calls[index]
 
-                        # 合并 id
-                        if "id" in tool_call and tool_call["id"] and not current_tool_call["id"]:
-                            current_tool_call["id"] += tool_call["id"]
-                        # 合并 function name
-                        if "function" in tool_call and "name" in tool_call["function"] and tool_call["function"]["name"]:
-                            current_tool_call["function"]["name"] += tool_call["function"]["name"]
-                        # 合并 arguments
-                        if "function" in tool_call and "arguments" in tool_call["function"] and tool_call["function"]["arguments"]:
-                            current_tool_call["function"]["arguments"] += tool_call["function"]["arguments"]
+                            # 合并 id
+                            if "id" in tool_call and tool_call["id"] and not current_tool_call["id"]:
+                                current_tool_call["id"] += tool_call["id"]
+                            # 合并 function name
+                            if "function" in tool_call and "name" in tool_call["function"] and tool_call["function"]["name"]:
+                                current_tool_call["function"]["name"] += tool_call["function"]["name"]
+                            # 合并 arguments
+                            if "function" in tool_call and "arguments" in tool_call["function"] and tool_call["function"]["arguments"]:
+                                current_tool_call["function"]["arguments"] += tool_call["function"]["arguments"]
         return accumulated_tool_calls
     except Exception as e:
         logger.error({"解析流式工具数据错误:": e})
@@ -212,7 +222,7 @@ def parse_tool_data(toollist):
 
 '''工具调用并返回结果'''
 
-def tool_call_result(accumulated_tool_calls):
+async def tool_call_result(accumulated_tool_calls):
     try:
         tool_res_list = []
         # 流处理结束后，提取工具调用信息
@@ -225,13 +235,15 @@ def tool_call_result(accumulated_tool_calls):
                     if tool_data.get('type') in ['mcp']:
                         logger.warning(f"工具类型为mcp，调用mcp模块")
                         mcp_data = tool_data.get('data', {})
-                        tool_result = mcp_client(mcp_data, 'call_tool',tool_call)
+                        # 获取当前事件循环（若已存在）
+                        # loop = asyncio.get_event_loop()
+                        tool_result = await mcp_client(mcp_data, 'call_tool',tool_call)
                         tool_res_list.append(tool_result)
                     else:
                         logger.warning(f"工具类型为{tool_data.get('type')},调用普通工具模块")
 
-                except json.JSONDecodeError:
-                    print("参数解析失败:", tool_call["function"]["arguments"])
+                except Exception as e2:
+                    logger.error(f"工具{tool_call["function"]["name"]}调用错误:: {e2}")
 
 
         return tool_res_list
@@ -239,7 +251,7 @@ def tool_call_result(accumulated_tool_calls):
         logger.error({"工具调用并返回结果错误:": e})
         logger.error(e)
         logger.error(traceback.format_exc())
-        return ''
+        return []
 
 
 

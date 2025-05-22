@@ -122,4 +122,62 @@ print(accumulated_tool_calls)
 
 
 
+agent01 = {'prompt': '你是一个智能助手，你的名字是小卓，回答呼叫中心系统和天气相关问题，如果用户的问题偏离主题，请拉回主题，回复尽量简洁，控制在50字左右', 'llm': 'qwen-plus', 'tools': [{'type': 'function', 'function': {'name': 'map_weather', 'description': '天气查询服务: 通过行政区划或是经纬度坐标查询实时天气信息及未来5天天气预报(注意: 使用经纬度坐标需要高级权限).', 'parameters': {'type': 'object', 'required': [], 'properties': {'location': {'type': 'string', 'description': '经纬度, 经度在前纬度在后, 逗号分隔 (需要高级权限)'}, 'district_id': {'type': 'integer', 'description': '行政区划代码, 需保证为6位无符号整数'}}}}}]}
+
+print(f'agent01={agent01}')
+
+
+
+
+
+al = [{'label': 'LLM大模型', 'value': 'llm', 'placeholder': """LLM大模型配置:\n skd： openai、ollama或其它支持的类型，默认openai，必填  \n url：连接LLM的url地址，必填 \n apikey：LLM平台鉴权的api_key，必填 \n module：LLM模型名称，必填 \n maxtext：模型支持的最大上下文，非必填 \n provider：模型提供商，非必填 \n remarks：模型描述，非必填 \n 配置示例：{"sdk": "openai", "sdkdir": "", "url": "https://dashscope.aliyuncs.com/compatible-mode/v1", "apikey": "***************b82cf", "module": "qwen-plus", "maxtext": "", "provider": "阿里云百炼", "remarks": ""}"""}, {'label': 'embd模型', 'value': 'embd', 'placeholder': 'embd向量模型配置:\n'}, {'label': 'MCP服务', 'value': 'mcp', 'placeholder': 'mcp服务配置:'}, {'label': '检索项', 'value': 'filter', 'placeholder': '动态检索项配置:\n'}, {'label': '动态表单', 'value': 'form', 'placeholder': '动态表单配置:'}]
+
+mcp_data = {'mcpServers': {'baidu-maps': {'url': 'https://mcp.map.baidu.com/sse?ak=oqIwmwH7yNI9v1EQQXbTIoo3VB1hPsFk'}},
+            'name': 'baidu-maps', 'mcp_type': 'sse', 'tools': []}
+
+
+
+
+from pydantic import BaseModel, EmailStr, ValidationError, Field
+
+class UserCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+    age: int = Field(..., gt=0)
+    email: EmailStr
+
+
+def create_user(data):
+    try:
+        user_data = UserCreate(**data)
+        print(f"用户创建成功：{user_data.name}, {user_data.age}, {user_data.email}")
+        print(data.get('name'))
+        return user_data
+    except ValidationError as e:
+        print(f"校验错误：{e.errors()}")
+        for error in e.errors():
+            print(f"字段：{error['loc'][0]}, 错误：{error['msg']}")
+        return e.errors()
+
+
+# 正确示例
+valid_data = {
+    "name": "Alice",
+    "age": 30,
+    "email": "alice@example.com"
+}
+create_user(valid_data)
+
+# 错误示例（年龄不符合）
+# invalid_data = {
+#     "name": "Bob",
+#     "age": -5,
+#     "email": "bob@example"
+# }
+# create_user(invalid_data)
+
+
+
+
+
+
 

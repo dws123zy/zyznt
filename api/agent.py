@@ -232,9 +232,185 @@ def agent_del(mydata: agentzgsarg):
 
 
 
+'''数据字典管理'''
 
 
 
+'''datadict数据字典通用新增、修改、删除'''
+
+class datadictarg3(BaseModel):
+    dictid: str = Field('', description="数据字典的id,修改删除时必填")
+    data: dict = Field({}, description="增加或修改的数据，增加修改时必填")
+
+class zydictzgsarg(publicarg):  # 通用增加和修改组合，公共+data
+    data: datadictarg3
+
+
+'''datadict数据字典查询接口'''
+
+@router.post("/datadict/get", tags=["数据字典查询"])
+def datadict_get(mydata: cxzharg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data = data_dict.get('data', {})
+
+        # 写sql
+        filterdata = data.get('filter', {})
+        if not filterdata.get('appid', ''):  # 如果检索项中没有appid，则使用当前user的appid
+            filterdata['appid'] = data_dict.get('appid', '')
+        sql = my.sqlc3(filterdata, 'zydict', data.get('page'), data.get('limit'), '')
+        datac, nub = my.msqlcxnum(sql)  # 查询数据
+
+        # 把部分字段值的json字符串转字典
+        for d in datac:
+            try:
+                if d.get('data'):
+                    d['data'] = eval(d['data'])
+            except Exception as e:
+                logger.error(f" datadict数据字典查询时转字典错误: {e}")
+                logger.error(traceback.format_exc())
+
+        # 获取表单数据form
+        menu_data = get_zydict('menu', 'adminmenu')
+
+        return {"msg": "success", "code": "200",
+                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit'),
+                         "menu_data": menu_data}}
+    except Exception as e:
+        logger.error(f"datadict数据字典查询接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''数据字典新增接口'''
+
+@router.post("/datadict/add", tags=["数据字典新增"])
+def datadict_add(mydata: zydictzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 拿到要新增的配置数据
+        data = data_dict.get('data', {})
+        data2 = data.get('data', {})
+        # 生成dictid
+        dictid  = 'dict'+str(int(time.time()))+''.join(random.choice(string.digits) for _ in range(3))
+        data2['dictid'] = dictid
+        # 获取当前时间
+        # nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        # data2['time'] = nowtime
+
+        # 把部分字段值的字典转字符
+        try:
+            if data2.get('data'):
+                data2['data'] = str(data2['data'])
+        except Exception as e:
+            logger.error(f" datadict数据字典新增时json转str错误: {e}")
+            logger.error(traceback.format_exc())
+
+        # 存入mysql数据库
+        sql = my.sqlz(data2, 'zydict')
+        jg = my.msqlzsg(sql)
+        if jg:
+            logger.warning(f'创建datadict数据字典成功{dictid}')
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": ''}
+
+        # 返回结果
+        logger.warning(f'创建datadict数据字典失败{dictid}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"datadict数据字典新增接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
+
+
+'''数据字典修改接口'''
+
+@router.put("/datadict/update", tags=["数据字典修改"])
+def datadict_update(mydata: zydictzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 拿到要修改的数据
+        data = data_dict.get('data', {})
+        data2 = data.get('data', {})
+        # 获取dictid
+        dictid  = data.get('dictid', '')
+        # 获取当前时间
+        # nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        # data2['time'] = nowtime
+
+        # 把部分字段值的字典转字符
+        try:
+            if data2.get('data'):
+                data2['data'] = str(data2['data'])
+        except Exception as e:
+            logger.error(f" datadict数据字典修改时json转str错误: {e}")
+            logger.error(traceback.format_exc())
+
+        # 组合检索项
+        filterdata = {'appid': data2.get('appid', ''), 'dictid': dictid}
+
+        # 存入mysql数据库
+        sql = my.sqlg(data2, 'zydict', filterdata)
+        jg = my.msqlzsg(sql)
+        if jg:
+            # 禁止修改向量数据库中的表、字段、索引、bm25，只有删除重建
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": ''}
+        logger.warning(f'修改datadict数据字典失败{dictid}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"datadict数据字典修改接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''datadict数据字典删除接口'''
+
+@router.delete("/datadict/del", tags=["数据字典删除"])
+def datadict_del(mydata: zydictzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 获取ragid
+        dictid = data_dict.get('data', {}).get('dictid', '')
+
+        # 组合检索项
+        filterdata = {'dictid': dictid}
+
+        # 存入mysql数据库
+        sql = my.sqls('zydict', filterdata)
+        jg = my.msqlzsg(sql)
+        if jg:
+            logger.warning(f'删除向量数据库表、mysql数据库成功{dictid}')
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": ''}
+
+        # 返回结果
+        logger.warning(f'删除datadict数据字典失败{dictid}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"datadict数据字典删除接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
 
 
 

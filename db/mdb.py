@@ -195,6 +195,7 @@ agent = {
         'columns': [
             ('id', 'int auto_increment primary key'),
             ('appid', 'varchar(20) default "" comment "appid"'),
+            ('type', 'varchar(20) default "agent" comment "智能体类型，agent、flow"'),
             ('name', 'varchar(200) default "" comment "智能体名称"'),
             ('agentid', 'varchar(20) default "" comment "智能体id"'),
             ('icon', 'varchar(20) default "favicon.ico" comment "图标名"'),

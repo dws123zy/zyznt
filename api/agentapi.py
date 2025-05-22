@@ -10,7 +10,8 @@ import asyncio
 
 # 本地模块
 from data.data import apikeyac, get_agent
-from mod.agent_run import agent_stream
+from mod.agent_run import agent_stream, agent_flow_start
+
 
 
 '''此模块用于agent智能体运行与交互，处理主要处理网络sse websocket post api接口交互，前端和api接口调用'''
@@ -86,6 +87,14 @@ async def agent_event(request: Request, agentid: str='', apikey: str='', user: s
             'session': session  # 会话id
         }
         logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
+        if not apikeyac(data_dict.get('apikey', ''), appid):
+            logger.warning(f'apikey验证失败')
+            rdata = {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
+            return StreamingResponse(
+            f"data：{rdata}",
+            media_type="text/event-stream")
         # 流式响应
         async def event_generator():
             async for chunk in agent_stream(request, data_dict):
@@ -103,7 +112,34 @@ async def agent_event(request: Request, agentid: str='', apikey: str='', user: s
         )
 
 
+'''agent flow智能体交互接口'''
 
+@router.post("/agent/flow", tags=["agent flow智能体交互"])
+async def agent_flow_post(request: Request, mydata: agentpublicarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
+        if not apikeyac(data_dict.get('apikey', ''), appid):
+            logger.warning(f'apikey验证失败')
+            return {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
+
+        # 判断是否流式返回
+        if data_dict.get('stream', False):
+            logger.warning(f'流式返回，暂不支持，开发中')
+            return StreamingResponse(
+                agent_flow_start(data_dict),  # 传递 request 参数
+                media_type="text/event-stream"
+            )
+        else:
+            logger.warning(f'非流式返回')
+            rdata = agent_flow_start(data_dict)
+            return {"msg": "success", "code": "200", "data": rdata}
+    except Exception as e:
+        logger.error(f"agent交互接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
 
 
 

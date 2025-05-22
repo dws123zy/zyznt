@@ -138,34 +138,34 @@ mcp_data = {'mcpServers': {'baidu-maps': {'url': 'https://mcp.map.baidu.com/sse?
 
 
 
-from pydantic import BaseModel, EmailStr, ValidationError, Field
-
-class UserCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=50)
-    age: int = Field(..., gt=0)
-    email: EmailStr
-
-
-def create_user(data):
-    try:
-        user_data = UserCreate(**data)
-        print(f"用户创建成功：{user_data.name}, {user_data.age}, {user_data.email}")
-        print(data.get('name'))
-        return user_data
-    except ValidationError as e:
-        print(f"校验错误：{e.errors()}")
-        for error in e.errors():
-            print(f"字段：{error['loc'][0]}, 错误：{error['msg']}")
-        return e.errors()
-
-
-# 正确示例
-valid_data = {
-    "name": "Alice",
-    "age": 30,
-    "email": "alice@example.com"
-}
-create_user(valid_data)
+# from pydantic import BaseModel, EmailStr, ValidationError, Field
+#
+# class UserCreate(BaseModel):
+#     name: str = Field(..., min_length=1, max_length=50)
+#     age: int = Field(..., gt=0)
+#     email: EmailStr
+#
+#
+# def create_user(data):
+#     try:
+#         user_data = UserCreate(**data)
+#         print(f"用户创建成功：{user_data.name}, {user_data.age}, {user_data.email}")
+#         print(data.get('name'))
+#         return user_data
+#     except ValidationError as e:
+#         print(f"校验错误：{e.errors()}")
+#         for error in e.errors():
+#             print(f"字段：{error['loc'][0]}, 错误：{error['msg']}")
+#         return e.errors()
+#
+#
+# # 正确示例
+# valid_data = {
+#     "name": "Alice",
+#     "age": 30,
+#     "email": "alice@example.com"
+# }
+# create_user(valid_data)
 
 # 错误示例（年龄不符合）
 # invalid_data = {
@@ -174,6 +174,90 @@ create_user(valid_data)
 #     "email": "bob@example"
 # }
 # create_user(invalid_data)
+
+print("智能体流配置数据")
+
+start = {"type": "mod", "module": "start_mod", "module_name": "开始",
+         "description": "开始，初始化系统变量和自定义变量，创建会话工作id，初始化空间",
+         "input": "", "output": ""}
+
+print(f"start={start}")
+
+
+start_flow = {"type": "mod", "module": "start_mod", "module_name": "开始",
+         "description": "开始，初始化系统变量和自定义变量，创建会话工作id，初始化空间",
+          "name": "开始", "node_id": "a01", "note": "",
+              "status": "", "nub": "0", "next": "a02", "upper": "",
+              "input": {"system": {"user_input": "", "data": {}, "start_time": "", "end_time": "", "user": "", "session": ""},
+                        "custom":{"a": "3"}},
+              "output": ""}
+
+print(f"start_flow={start_flow}")
+
+
+end = {"type": "mod", "module": "end_mod", "module_name": "结束",
+      "description": "结束，结束会话，保存会话记录，清空内存运行数据", "input": "", "output": ""}
+
+
+print(f"end={end}")
+
+end_flow = {"type": "mod", "module": "end_mod", "module_name": "结束",
+         "description": "结束，结束会话，保存会话记录，清空内存运行数据",
+          "name": "结束", "node_id": "a03", "note": "",
+              "status": "", "nub": "0", "next": "", "upper": "", "input": "",
+              "output": {"system": {"user_input": "", "data": {}, "start_time": "", "end_time": "", "user": "", "session": ""}, }
+}
+
+print(f"end_flow={end_flow}")
+
+
+
+llm_mod = {"type": "mod", "module": "llm_mod", "module_name": "LLM大模型", "description": "LLM大模型调用并执行任务",
+          "input": {"user_input": "", "llm": "LLM大模型", "prompt": "提示词", "tools": []}, "output": {"content": ""}}
+
+
+print(f"llm_mod={llm_mod}")
+
+llm_flow = {"type": "mod", "module": "llm_mod", "module_name": "LLM大模型", "description": "LLM大模型调用并执行任务",
+          "name": "LLM大模型", "node_id": "a02", "note": "输入提示词让llm按你的要求工作",
+              "status": "", "nub": "0", "next": "a03", "upper": "",
+              "input": {"user_input": "quote/system/user_input", "llm": "qwen-plus", "prompt": "你是一个数据处理员，把此数据以/分隔一下", "tools": []},
+            "output": {"content": ""}
+}
+
+print(f"llm_flow={llm_flow}")
+
+
+
+agentflow = {"flow_data": {"a01": start_flow, "a02": llm_flow, "a03": end_flow}}
+
+print(f"agentflow={agentflow}")
+
+
+import uuid
+
+uuid1 = uuid.uuid4()
+
+print(uuid1)
+
+print(str(uuid1)[:8])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

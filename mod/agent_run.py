@@ -5,6 +5,8 @@ import logging
 from concurrent.futures import ThreadPoolExecutor  # 线程池
 from fastapi import Request
 import asyncio
+import importlib
+
 
 # 本地模块
 from db import mv, my
@@ -171,11 +173,11 @@ async def agent_stream(request: Request, data):
     try:
         logger.warning(f'data={data}')
         # 验证请求合法性
-        appid = get_agent(data.get('agentid', {})).get('appid', '')
-        if not apikeyac(data.get('apikey', ''), appid):
-            logger.warning(f'agent请求验证失败')
-            yield f"agent验证失败\n\n"
-            return
+        # appid = get_agent(data.get('agentid', {})).get('appid', '')
+        # if not apikeyac(data.get('apikey', ''), appid):
+        #     logger.warning(f'agent请求验证失败')
+        #     yield f"agent验证失败\n\n"
+        #     return
         '''调用函数处理agent配置work，返回以下参数用于调用大模型
         msg, apikey, url, mod, tools=None, temperature=0.9, stream=True  sdk
         '''
@@ -216,7 +218,89 @@ async def agent_stream(request: Request, data):
 
 
 
+'''智能体流运行'''
 
+'''获取flow读取模块配置'''
+
+flow_mod_data = get_zydict('flowmod', 'flowmod')
+
+
+'''动态加载文件读取模块'''
+
+modlist = {}
+
+
+for m in flow_mod_data:
+    try:
+        module = importlib.import_module(m.get('dir'))
+        # 获取函数
+        func = getattr(module, m.get('fun_name'))
+        modlist[m.get('fun_name')] = func
+        print('模块导入成功=', func)
+    except ImportError as e:
+        print(f"导入失败: {e}")
+
+logger.warning(f'模块导入成功={modlist}')
+
+
+
+'''flow 智能体流运行开始'''
+
+def agent_flow_start(data):
+    try:
+        alldata = {}  # 全局数据集合
+        rdata = {}  # 要返回的数据
+        # 获取智能体配置数据
+        agent = get_agent(data.get('agentid')).get('data', {})
+        # 判断第一次交互还是多轮
+        if data.get('session'):
+            print('多轮对话，从redis拿历史对话数据进行对话，找到执行的节点id,接着执行')
+        else:
+            print('第一次对话，先找开始节点，拿到配置数据')
+            next = 'start_mod'  # 要执行的节点id
+            agent_data = agent.get('flow_data', {})
+            # 获取开始节点id
+            for k in agent_data:
+                if agent_data.get(k).get('module') in ['start_mod']:
+                    next = k
+                    break
+
+            # 循环执行所有节点，只有当next值为空时才退出循环
+            while next:
+                flow_data = agent_data.get(next, {})  # 节点数据
+                mod_name = flow_data.get('module')  # 节点模块名
+                if  flow_data:
+                    # 执行节点
+                    if mod_name in ['start_mod']:  # 开始节点，走的流程不一样
+                        start_data = modlist[mod_name](data, flow_data)
+                        if start_data.get('code') in ['200', 200]:
+                            # 初始化数据到全局数据集合alldata中
+                            alldata = start_data.get('data', {})
+                            next = flow_data.get('next', '')  # 获取下一个节点id
+                            continue
+                        else:  # 节点执行失败
+                            next = ''  # 不再执行节点
+                            return start_data
+                    else:  # 非开始节点执行
+                        # 组合本次节点的入参数据
+                        indata = modlist['param_data'](alldata, flow_data)
+                        # 执行节点
+                        datac = modlist[mod_name](indata, flow_data)
+                        if datac.get('code') in ['200', 200]:
+                            print(f'节点执行成功，节点id={next},节点数据={datac}')
+                            alldata[next] = datac.get('data', {})
+                            next = flow_data.get('next', '')
+                        else:
+                            print(f'节点执行失败，节点id={next},节点数据={datac}')
+                            return datac
+        # 所有节点执行完毕，处理对话存储和返回结果
+        pass
+        # 返回结果数据
+        return rdata
+    except Exception as e:
+        logger.error(f"智能体流运行开始错误: {e}")
+        logger.error(traceback.format_exc())
+        return ''
 
 
 

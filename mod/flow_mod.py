@@ -6,6 +6,9 @@ import time
 import uuid
 from datetime import datetime
 
+from mod.llm import openai_llm
+from data.data import get_zydict
+
 
 
 '''此模块为智能体流的基础组件库'''
@@ -71,7 +74,14 @@ def end_mod(indata, flowdata):
 
 def llm_mod(indata, flowdata):
     try:
-        pass
+        # 调用LLM大模型
+        msg = [{"role": "system", "content": flowdata.get('prompt', '')},
+               {"role": "user", "content": indata.get('user_input', '')}]
+        llmid = indata.get('llm')
+        llmdata = get_zydict('llm', llmid)
+        rdata = openai_llm(msg, llmdata.get('apikey', ''), llmdata.get('url', ''), llmdata.get('mod', ''),
+                           tools=indata.get('tools', ''))
+        return str(rdata)
     except Exception as e:
         logger.error({"llm_mod错误:": e})
         logger.error(e)

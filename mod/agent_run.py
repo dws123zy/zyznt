@@ -191,17 +191,17 @@ async def agent_stream(request: Request, data):
                 async for chunk in openai_llm_stream(workdata.get('msg', []), workdata.get('apikey', ''), workdata.get('url', ''),
                                         workdata.get('mod', ''), workdata.get('tools', None),
                                         workdata.get('temperature', 0.9), workdata.get('stream', True)):
-                    yield f"{chunk}\n\n"
+                    yield f"{chunk}"
 
             elif llmsdk in  ['ollama']:
                 # 调用llm大模型
                 logger.warning(f'从ollama调用llm大模型')
             else:
                 logger.warning(f'不支持的llm模型={llmsdk}')
-                yield f"不支持的llm模型={llmsdk}\n\n"
+                yield f"不支持的llm模型={llmsdk}"
         else:
             logger.warning(f'agent工作处理函数错误')
-            yield f"agent工作处理函数错误\n\n"
+            yield f"agent工作处理函数错误"
 
         # for i in range(10):
         #     if await request.is_disconnected():
@@ -214,7 +214,7 @@ async def agent_stream(request: Request, data):
     except Exception as e:
         logger.error(f'agent_stream错误信息：{e}')
         logger.error(traceback.format_exc())
-        yield f"错误\n\n"
+        yield f"错误"
 
 
 

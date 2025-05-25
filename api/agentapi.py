@@ -112,7 +112,7 @@ async def agent_event(request: Request, agentid: str='', apikey: str='', user: s
         )
 
 
-'''agent flow智能体交互接口'''
+'''agent flow智能体流交互接口*'''
 
 @router.post("/agent/flow", tags=["agent flow智能体交互"])
 async def agent_flow_post(request: Request, mydata: agentpublicarg):

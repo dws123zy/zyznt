@@ -243,7 +243,7 @@ print(uuid1)
 print(str(uuid1)[:8])
 
 
-
+ag = {'prompt': '你是一个智能助手，帮助用户实现他想要的', 'llm': 'qwen-plus', 'tools': []}
 
 
 

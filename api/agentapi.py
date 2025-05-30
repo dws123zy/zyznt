@@ -14,7 +14,7 @@ from mod.agent_run import agent_stream, agent_flow_start
 
 
 
-'''此模块用于agent智能体运行与交互，处理主要处理网络sse websocket post api接口交互，前端和api接口调用'''
+'''此模块用于agent智能体运行与交互，处理主要处理网络sse websocket post api接口交互，前端和api接口调用*'''
 
 
 '''日志'''
@@ -112,7 +112,7 @@ async def agent_event(request: Request, agentid: str='', apikey: str='', user: s
         )
 
 
-'''agent flow智能体流交互接口*'''
+'''agent flow智能体流交互接口'''
 
 @router.post("/agent/flow", tags=["agent flow智能体交互"])
 async def agent_flow_post(request: Request, mydata: agentpublicarg):

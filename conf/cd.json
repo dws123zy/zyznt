@@ -2,7 +2,7 @@
     {
         "path": "/agent",
         "component": "Layout",
-        "redirect": "/agent/agent",
+        "redirect": "/agent/chat",
         "name": "/agent",
         "meta": {
             "title": "智能体agent",
@@ -12,6 +12,19 @@
             "params": ""
         },
         "children": [
+            {
+                "path": "chat",
+                "component": "agent/chat/index",
+                "name": "chat",
+                "meta": {
+                    "title": "对话",
+                    "icon": "el-icon-User",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
             {
                 "path": "agent",
                 "component": "agent/agent/index",
@@ -32,6 +45,19 @@
                 "meta": {
                     "title": "智能体流",
                     "icon": "role",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
+                "path": "chatset",
+                "component": "agent/chatset/index",
+                "name": "chatset",
+                "meta": {
+                    "title": "对话设置",
+                    "icon": "el-icon-User",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,

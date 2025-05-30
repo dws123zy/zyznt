@@ -191,6 +191,7 @@ async def agent_stream(request: Request, data):
                 async for chunk in openai_llm_stream(workdata.get('msg', []), workdata.get('apikey', ''), workdata.get('url', ''),
                                         workdata.get('mod', ''), workdata.get('tools', None),
                                         workdata.get('temperature', 0.9), workdata.get('stream', True)):
+                    logger.warning(f'LLM流返回={chunk}')
                     yield f"{chunk}"
 
             elif llmsdk in  ['ollama']:

@@ -214,6 +214,29 @@ agent = {
 
 
 
+agent_record = {
+        'columns': [
+            ('id', 'int auto_increment primary key'),
+            ('appid', 'varchar(20) default "" comment "appid"'),
+            ('type', 'varchar(20) default "agent" comment "智能体类型，agent、flow"'),
+            ('name', 'varchar(200) default "" comment "智能体名称"'),
+            ('agentid', 'varchar(20) default "" comment "智能体id"'),
+            ('start_time', 'varchar(20) default "" comment "开始时间"'),
+            ('last_time', 'varchar(20) default "" comment "最后对话时间"'),
+            ('user', 'varchar(50) default "" comment "创建人"'),
+            ('department', 'varchar(50) default "" comment "部门"'),
+            ('session', 'varchar(50) default "" comment "对话id，唯一"'),
+            ('tokens', 'int default "" comment "消耗的tokens数量"'),
+            ('data', 'text default "{}" comment "对话和运行数据,以json格式存储"')
+        ],
+        'indexes': [
+            ('idx_session', 'session'),
+            ('idx_time_appid_user_agentid', 'start_time, appid, user, agentid')
+        ]
+}
+
+
+
 
 '''' 表结构总数据  '''
 
@@ -224,6 +247,7 @@ TABLE_DEFINITIONS = {
     'rag': rag,  # rag知识库表
     'file': file,  # 文件表
     'agent': agent,  # 智能体
+    'agent_record': agent_record,  # 智能体对话记录
 }
 
 

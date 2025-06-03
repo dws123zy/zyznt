@@ -206,10 +206,16 @@ def sqlc3(data, name, p, lm, syx):
         if data:
             for c in data:
                 if data[c]:
-                    if sq2:
-                        sq2 = sq2 + " and %s='%s'" % (c, data[c])
+                    if c in ['start_time']:
+                        if sq2:
+                            sq2 = sq2 + " and %s >='%s' and %s <='%s'" % (c, data[c][0], c, data[c][1])
+                        else:
+                            sq2 = "%s >='%s' and %s <='%s'" % (c, data[c][0], c, data[c][1])
                     else:
-                        sq2 = "%s='%s'" % (c, data[c])
+                        if sq2:
+                            sq2 = sq2 + " and %s='%s'" % (c, data[c])
+                        else:
+                            sq2 = "%s='%s'" % (c, data[c])
 
         fy = ""  # 处理分页，如有的话
         if p and lm:

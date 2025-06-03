@@ -373,7 +373,7 @@
     {
         "path": "/doc",
         "component": "Layout",
-        "redirect": "https://juejin.cn/post/7228990409909108793",
+        "redirect": "http://zyznt.zy-yun.cn:8000/docs",
         "name": "/doc",
         "meta": {
             "title": "平台api文档",
@@ -396,8 +396,8 @@
                 }
             },
             {
-                "path": "https://juejin.cn/post/7228990409909108793",
-                "name": "Https://juejin.cn/post/7228990409909108793",
+                "path": "http://zyznt.zy-yun.cn:8000/docs",
+                "name": "http://zyznt.zy-yun.cn:8000/docs",
                 "meta": {
                     "title": "项目文档(外链)",
                     "icon": "document",
@@ -407,8 +407,8 @@
                 }
             },
             {
-                "path": "https://youlai.blog.csdn.net/article/details/145178880",
-                "name": "Https://youlai.blog.csdn.net/article/details/145178880",
+                "path": "http://zyznt.zy-yun.cn:8000/docs",
+                "name": "http://zyznt.zy-yun.cn:8000/docs",
                 "meta": {
                     "title": "后端文档",
                     "icon": "document",

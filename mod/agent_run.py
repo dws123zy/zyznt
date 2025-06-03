@@ -6,10 +6,13 @@ from concurrent.futures import ThreadPoolExecutor  # 线程池
 from fastapi import Request
 import asyncio
 import importlib
+import time
+import copy
 
+from requests import session
 
 # 本地模块
-from db import mv, my
+from db import mv, my, zyredis
 from data.data import get_zydict, apikeyac, get_agent, get_rag
 from mod.file import zyembd
 from mod.llm import openai_llm, openai_llm_stream
@@ -91,75 +94,243 @@ def agent_rag_search(data):
 
 
 
-'''work agent工作处理函数'''
+'''work agent工作数据组合函数'''
 
 async def agent_work(q_data):
     try:
-        '''使用agentid拿到智能体配置数据'''
-        agent = get_agent(q_data.get('agentid', {})).get('data', {})
-        if agent:
-            ragtext = '空'
-            q_text = q_data.get('msg', [])[-1].get('content', '')
-            # 处理rag知识搜索
-            if agent.get('rag', ''):  # 有值说明有配置，要查rag
-                if q_data.get('msg', []):
-                    if q_text in ['你好', '您好', '你叫什么名字', '你是谁', 'hi', 'hello']:
-                        logger.warning(f'用户常规性问候，无需查询rag')
-                        return ''
-                    else:
-                        ragtext = agent_rag_search({'text': q_text, 'rag': agent.get('rag', '')})
-            # 网页搜索
-            if agent.get('website', ''):
-                logger.warning(f'用户请求网页搜索')
-            # 文件知识
-            filetext = ''
-            if agent.get('file', ''):
-                logger.warning(f'用户请求文件知识')
-                for f in agent.get('file', '').split('/'):
-                    try:
-                        db_text = my.sqlc3({'fileid': f}, 'file', '1', '1', '')
-                        if db_text and db_text[0].get('text', ''):
-                            filetext += str(db_text[0].get('text', ''))
-                    except Exception as e2:
-                        logger.error(f"文件知识搜索错误: {e2}")
-                        logger.error(traceback.format_exc())
+        '''判断session id是否已存在，如果有就是老对话，无就是新对话'''
+        session_type = 'new'  # 默认新对话
+        session_data = {}
+        session_id = q_data.get('session', '')
+        if session_id:
+            # 先查redis中的session数据
+            session_data = zyredis.rjget(['agent_record', '.' + session_id])
+            if session_data:
+                session_type = 'redis'  # redis中有的数据，说明是老对话，也在redis中，近期的
+            else:  # 从mysql中取值
+                sqlcmd = my.sqlc3({'session': session_id}, 'agent_record', '1', '1', '')
+                session_data_my = my.msqlc(sqlcmd)
+                if session_data_my:
+                    session_data = session_data_my[0]
+                    session_type = 'old'  # redis中无，my中有，说明数据很久了
 
-            # 获取大模型LLM配置数据
-            llmdata = get_zydict('llm', agent.get('llm', ''))
+        '''当为新对话或很久的老对话时，生成智能体初始化数据'''
+        if session_type in ['new' , 'old']:
+            logger.warning(f'此为新对话或mysql中的老对话，生成智能体初始化数据={session_id}')
+            '''使用agentid拿到智能体配置数据'''
+            agent = get_agent(q_data.get('agentid', '')).get('data', {})
+            if agent:
+                ragtext = '空'
+                q_text = q_data.get('msg', [])[-1].get('content', '')  # 拿到本次的问题
+                # 处理rag知识搜索
+                if agent.get('rag', ''):  # 有值说明有配置，要查rag
+                    if q_data.get('msg', []):
+                        if q_text in ['你好', '您好', '你叫什么名字', '你是谁', 'hi', 'hello']:
+                            logger.warning(f'用户常规性问候，无需查询rag')
+                            return ''
+                        else:
+                            ragtext = agent_rag_search({'text': q_text, 'rag': agent.get('rag', '')})
+                # 网页搜索
+                if agent.get('website', ''):
+                    logger.warning(f'用户请求网页搜索')
+                # agent中配置的文件知识
+                filetext = ''
+                if agent.get('file', ''):
+                    logger.warning(f'用户请求文件知识')
+                    for f in agent.get('file', '').split('/'):
+                        try:
+                            db_text = my.sqlc3({'fileid': f}, 'file', '1', '1', '')
+                            if db_text and db_text[0].get('text', ''):
+                                filetext += str(db_text[0].get('text', ''))
+                        except Exception as e2:
+                            logger.error(f"文件知识搜索错误: {e2}")
+                            logger.error(traceback.format_exc())
 
-            # 组合msg
-            msg = []
-            if agent.get('prompt'):  # 增加系统提示词到msg中
-                msg.append({'role': 'system', 'content': agent.get('prompt', '')})
-            if agent.get('context'):  # 增加上下文到msg中
-                msg.append({'role': 'system', 'content': agent.get('context', '')})
-            # 增加本次消息列表到msg中
-            msg.extend(q_data.get('msg', []))
-            if ragtext:  # 增加rag搜索结果到msg中
-                msg.append({'role': 'system', 'content': f'根据用户问题{q_text}，查到的外部知识为：{ragtext}'})
-            if ragtext:  # 增加文件内容到msg中
-                msg.append({'role': 'system', 'content': f'文件内容：{filetext}'})
-            '''
-            # 数据组合
-            msg, apikey, url, mod, tools = None, temperature = 0.9, stream = True
-            '''
-            rdata = {
-                'msg': msg,
-                'apikey': llmdata.get('apikey', ''),
-                'sdk': llmdata.get('sdk', 'openai'),
-                'url': llmdata.get('url', ''),
-                'mod': llmdata.get('module', ''),
-                'tools': agent.get('tools', ''),
-                'temperature': agent.get('temperature', 0.9),
-                'stream': agent.get('stream', True)
-            }
-            # 返回数据
-            return rdata
+                # 获取大模型LLM配置数据
+                llmdata = get_zydict('llm', agent.get('llm', ''))
 
+                # 组合msg
+                msg = []
+                '''增加系统参数到msg中'''
+                if agent.get('prompt'):  # 增加系统提示词到msg中
+                    msg.append({'role': 'system', 'content': agent.get('prompt', '')})
+                if agent.get('context'):  # 增加上下文到msg中
+                    msg.append({'role': 'system', 'content': agent.get('context', '')})
+                if ragtext:  # 增加文件内容到msg中
+                    msg.append({'role': 'system', 'content': f'文件内容：{filetext}'})
 
+                '''把初始化agent数据存到redis，便于后面对话使用'''
+                r_msg = copy.deepcopy(msg)
+                r_agen_data = {
+                    'msg': r_msg,
+                    'apikey': llmdata.get('apikey', ''),
+                    'sdk': llmdata.get('sdk', 'openai'),
+                    'url': llmdata.get('url', ''),
+                    'mod': llmdata.get('module', ''),
+                    'tools': agent.get('tools', ''),
+                    'temperature': agent.get('temperature', 0.9),
+                    'stream': agent.get('stream', True)
+                }
+                nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+                # 老数据时，要拿到历史的data数据，一起存到redis中
+                data_msg = []
+                if session_type in ['old']:
+                    data_msg = session_data.get('data', [])  # 获取历史数据
+                    # 从历史数据中取出msg然后加到当前的msg中
+                    for m in data_msg:
+                        if m.get('msg'):
+                            msg.extend(m.get('msg', []))
+                # 组合要存入redis的数据
+                r_session_data = {"appid": agent.get('appid', ''), "agentid": q_data.get('agentid', ''),
+                                  "session": session_id, "name": agent.get('name', ''), "user": q_data.get('user', ''),
+                                  "start_time":  nowtime, "last_time": nowtime, "tokens": 0, "type": "agent",
+                                  "data": data_msg, "agent_data": r_agen_data, "fileid": q_data.get('fileid', [])}
+                rjg = zyredis.rjset(['agent_record', '.' + session_id, r_agen_data])
+
+                '''当为新对话时，存到mysql中'''
+                if session_type in ['new']:
+                    del r_session_data['agent_data']  # mysql中不存agent_data
+                    del r_session_data['fileid']  # mysql中不存fileid
+                    sqlcmd = my.sqlz(r_session_data, 'agent_record')
+                    mjg = my.msqlzsg(sqlcmd)
+
+                '''组合本次请求中的file文件'''
+                q_file_text = ''
+                if q_data.get('fileid', []):
+                    logger.warning(f'处理本次用户请求文件内容')
+                    for qf in q_data.get('fileid', []):
+                        try:
+                            q_db_text = my.sqlc3({'fileid': qf}, 'file', '1', '1', '')
+                            if q_db_text and q_db_text[0].get('text', ''):
+                                f_text = f"文件名：{q_db_text[0].get('name', '')}，文件内容：{str(q_db_text[0].get('text', ''))}。  "
+                                q_file_text += f_text
+                        except Exception as e3:
+                            logger.error(f"文件知识搜索错误: {e3}")
+                            logger.error(traceback.format_exc())
+
+                '''增加本次消息内容到msg中'''
+                this_msg = []
+                if q_file_text:  # 增加本次文件内容到msg中
+                    f_msg = {'role': 'system', 'content': f'{q_file_text}'}
+                    msg.append(f_msg)  # 添加文件内容到主msg中
+                    this_msg.append(f_msg)  # 添加文件内容到本次msg中
+                if agent.get('prologue') and session_type in ['new']:  # 增加开场白到msg中
+                    p_msg = {'role': 'assistant', 'content': agent.get('prologue', '')}
+                    msg.append(p_msg)  # 添加开场白到主msg中
+                    this_msg.append(p_msg)  # 添加开场白到本次msg中
+                msg.extend(q_data.get('msg', []))  # 增加本次问题列表到msg中
+                if ragtext:  # 增加本次问题rag搜索结果到msg中
+                    rag_msg = {'role': 'system', 'content': f'根据用户问题{q_text}，查到的外部知识为：{ragtext}'}
+                    msg.append(rag_msg)  # 添加 rag搜索结果到主msg中
+                    this_msg.append(rag_msg)  # 添加 rag搜索结果到本次msg中
+
+                '''
+                # 数据组合
+                msg, apikey, url, mod, tools = None, temperature = 0.9, stream = True
+                '''
+                rdata = {
+                    'msg': msg,
+                    'apikey': llmdata.get('apikey', ''),
+                    'sdk': llmdata.get('sdk', 'openai'),
+                    'url': llmdata.get('url', ''),
+                    'mod': llmdata.get('module', ''),
+                    'tools': agent.get('tools', ''),
+                    'temperature': agent.get('temperature', 0.9),
+                    'stream': agent.get('stream', True),
+                    'this_msg': this_msg,
+                    'session_data': session_data,
+                }
+                # 返回数据
+                return rdata
+            else:
+                logger.warning(f'未找到智能体配置')
+                return {}
         else:
-            logger.warning(f'未找到智能体配置')
-            return ''
+            logger.warning(f'此为redis缓存对话，使用数据库中的数据={session_id}')
+            '''使用agentid拿到智能体配置数据'''
+            agent = get_agent(q_data.get('agentid', '')).get('data', {})
+            if agent:
+                ragtext = '空'
+                q_text = q_data.get('msg', [])[-1].get('content', '')  # 拿到本次的问题
+                # 处理rag知识搜索
+                if agent.get('rag', ''):  # 有值说明有配置，要查rag
+                    if q_data.get('msg', []):
+                        if q_text in ['你好', '您好', '你叫什么名字', '你是谁', 'hi', 'hello']:
+                            logger.warning(f'用户常规性问候，无需查询rag')
+                            return ''
+                        else:
+                            ragtext = agent_rag_search({'text': q_text, 'rag': agent.get('rag', '')})
+                # 网页搜索
+                if agent.get('website', ''):
+                    logger.warning(f'用户请求网页搜索')
+
+                # 获取大模型LLM配置数据
+                llmdata = get_zydict('llm', agent.get('llm', ''))
+
+                # 组合msg
+                msg = []
+                # 老数据时，要拿到历史的data数据，一起存到redis中
+                data_msg = session_data.get('data', [])  # 获取历史数据
+                if data_msg:
+                    # 从历史数据中取出msg然后加到当前的msg中
+                    for m in data_msg:
+                        if m.get('msg'):
+                            msg.extend(m.get('msg', []))
+
+                '''组合本次请求中的file文件'''
+                q_file_text = ''
+                if q_data.get('fileid', []):
+                    logger.warning(f'处理本次用户请求文件内容')
+                    for qf in q_data.get('fileid', []):
+                        try:
+                            q_db_text = my.sqlc3({'fileid': qf}, 'file', '1', '1', '')
+                            if q_db_text and q_db_text[0].get('text', ''):
+                                f_text = f"文件名：{q_db_text[0].get('name', '')}，文件内容：{str(q_db_text[0].get('text', ''))}。  "
+                                q_file_text += f_text
+                        except Exception as e3:
+                            logger.error(f"文件知识搜索错误: {e3}")
+                            logger.error(traceback.format_exc())
+
+                '''增加本次消息内容到msg中'''
+                this_msg = []
+                if q_file_text:  # 增加本次文件内容到msg中
+                    f_msg = {'role': 'system', 'content': f'{q_file_text}'}
+                    msg.append(f_msg)  # 添加文件内容到主msg中
+                    this_msg.append(f_msg)  # 添加文件内容到本次msg中
+                if agent.get('prologue') and session_type in ['new']:  # 增加开场白到msg中
+                    p_msg = {'role': 'assistant', 'content': agent.get('prologue', '')}
+                    msg.append(p_msg)  # 添加开场白到主msg中
+                    this_msg.append(p_msg)  # 添加开场白到本次msg中
+                msg.extend(q_data.get('msg', []))  # 增加本次问题列表到msg中
+                if ragtext:  # 增加本次问题rag搜索结果到msg中
+                    rag_msg = {'role': 'system', 'content': f'根据用户问题{q_text}，查到的外部知识为：{ragtext}'}
+                    msg.append(rag_msg)  # 添加 rag搜索结果到主msg中
+                    this_msg.append(rag_msg)  # 添加 rag搜索结果到本次msg中
+
+                '''
+                # 数据组合
+                msg, apikey, url, mod, tools = None, temperature = 0.9, stream = True
+                '''
+                # rdata = {
+                #     'msg': msg,
+                #     'apikey': llmdata.get('apikey', ''),
+                #     'sdk': llmdata.get('sdk', 'openai'),
+                #     'url': llmdata.get('url', ''),
+                #     'mod': llmdata.get('module', ''),
+                #     'tools': agent.get('tools', ''),
+                #     'temperature': agent.get('temperature', 0.9),
+                #     'stream': agent.get('stream', True),
+                #     'this_msg': this_msg,
+                # }
+                rdata = session_data.get('agent_data', {})  # 增加当前智能体的初始化数据
+                rdata['this_msg'] = this_msg  # 增加本轮msg
+                rdata['msg'] = rdata['msg'] + msg
+                rdata['session_data'] = session_data
+                # 返回数据
+                return rdata
+            else:
+                logger.warning(f'未找到智能体配置')
+                return {}
     except Exception as e:
         logger.error(f'agent工作处理函数错误: {e}')
         logger.error(traceback.format_exc())
@@ -181,8 +352,13 @@ async def agent_stream(request: Request, data):
         '''调用函数处理agent配置work，返回以下参数用于调用大模型
         msg, apikey, url, mod, tools=None, temperature=0.9, stream=True  sdk
         '''
-        workdata = await agent_work(data)
+        workdata = await agent_work(data)  # agent工作数据组合
         if workdata:
+            # 初始化本轮对话数据
+            nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            this_data = {'start_time': nowtime, 'end_time': '', 'msg': workdata.get('this_msg', []),
+                         'custom_data': data.get('data', {}), 'log': []}
+            llm_msg = {'role': 'assistant', 'content': ''}
             # 调用大模型
             llmsdk = workdata.get('sdk', '')
             if llmsdk in ['openai']:
@@ -192,6 +368,7 @@ async def agent_stream(request: Request, data):
                                         workdata.get('mod', ''), workdata.get('tools', None),
                                         workdata.get('temperature', 0.9), workdata.get('stream', True)):
                     logger.warning(f'LLM流返回={chunk}')
+                    llm_msg['content'] = llm_msg['content'] + chunk
                     yield f"{chunk}"
 
             elif llmsdk in  ['ollama']:
@@ -200,6 +377,19 @@ async def agent_stream(request: Request, data):
             else:
                 logger.warning(f'不支持的llm模型={llmsdk}')
                 yield f"不支持的llm模型={llmsdk}"
+            # 存结果
+            logger.warning(f'LLM执行完成，现在把结果存到redis和mysql={llm_msg}')
+            end_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            this_data['end_time'] = end_time  # 增加结束时间
+            this_data['msg'].append(llm_msg)  #  添加LLM结果到主msg中
+            # 存结果到数据库中
+            r_data = workdata.get('session_data', {}).get('data', [])+[this_data]
+            session_id = data.get('session', 'a')
+            if session_id:
+                rjg = zyredis.rjset(['agent_record', f'.{session_id}.data', r_data])  # 存到redis中
+                # 存到mysql中
+                sqlcmd = my.sqlg({'data': r_data},  'agent_record', {'session': session_id})
+                mjg = my.msqlzsg(sqlcmd)
         else:
             logger.warning(f'agent工作处理函数错误')
             yield f"agent工作处理函数错误"

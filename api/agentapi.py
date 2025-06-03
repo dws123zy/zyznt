@@ -11,6 +11,7 @@ import asyncio
 # 本地模块
 from data.data import apikeyac, get_agent
 from mod.agent_run import agent_stream, agent_flow_start
+from db import my
 
 
 
@@ -37,6 +38,7 @@ class agentpublicarg(BaseModel):  # 公共参数，所有接口必传
     msg: list = Field(frozen=True, description="对话列表")
     stream: bool = Field(False, description="流式交互")
     data: dict = Field({}, description="自定义数据")
+    fileid: list = Field([], description="文件id列表")
 
 
 '''******agent智能体运行******'''
@@ -143,7 +145,68 @@ async def agent_flow_post(request: Request, mydata: agentpublicarg):
 
 
 
+'''******agent智能体对话记录管理******'''
 
+
+'''统一总入参格式类定义'''
+
+class publicarg(BaseModel):  # 公共参数，所有接口必传
+    apikey: str = Field(frozen=True, description="apikey验证")
+    agentid: str = Field(frozen=True, description="智能体id")
+    time: str = Field(frozen=True, description="当前时间戳,精确到秒，也就是10位")
+    # data: dict = Field({}, description="交互数据，")
+
+
+class cxdataarg(BaseModel):  # 查询时data中的标准参数
+    filter: dict = Field({}, description="查询条件,检索项，以键值对方式传过来，start_time、user为必填,start_time的值为列表，0位是查询的开始时间，1位是查询的结束时间，格式如：[2025-05-17 08:53:29, 2025-05-17 23:53:29]")
+    limit: int = Field(200, description="每页显示的数量")
+    page: int = Field(1, description="页码，第几页")
+
+
+class cxzharg(publicarg):  # 通用查询类组合，公共+data
+    data: cxdataarg
+
+
+
+
+'''agent智能体对话记录查询接口'''
+
+@router.post("/agent/record/get", tags=["智能体对话记录查询"])
+def agent_get(mydata: cxzharg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
+        if not apikeyac(data_dict.get('apikey', ''), appid):
+            logger.warning(f'apikey验证失败')
+            return {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
+        data = data_dict.get('data', {})
+
+        # 写sql
+        filterdata = data.get('filter', {})
+        if not filterdata.get('start_time') or not filterdata.get('user'):  # 如果检索项中没有start_time则返回错误
+            return {"msg": "Missing 'start_time' or 'user' required field", "code": "157", "data": ""}
+        # if not filterdata.get('appid', ''):  # 如果检索项中没有appid，则使用当前user的appid
+        #     filterdata['appid'] = data_dict.get('appid', '')
+        sql = my.sqlc3(filterdata, 'agent_record', data.get('page'), data.get('limit'), '')
+        datac, nub = my.msqlcxnum(sql)  # 查询数据
+
+        # 把部分字段值的json字符串转字典
+        for d in datac:
+            try:
+                if d.get('data'):
+                    d['data'] = eval(d['data'])
+            except Exception as e:
+                logger.error(f" agent查询时转字典错误: {e}")
+                logger.error(traceback.format_exc())
+
+        return {"msg": "success", "code": "200",
+                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit')}}
+    except Exception as e:
+        logger.error(f"agent查询接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
 
 
 

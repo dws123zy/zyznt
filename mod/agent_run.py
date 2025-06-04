@@ -8,6 +8,7 @@ import asyncio
 import importlib
 import time
 import copy
+from threading import Timer
 
 from requests import session
 
@@ -104,30 +105,33 @@ async def agent_work(q_data):
         session_id = q_data.get('session', '')
         if session_id:
             # 先查redis中的session数据
-            session_data = zyredis.rjget(['agent_record', '.' + session_id])
-            if session_data:
+            r_data = zyredis.rjget(['agent_record', '.' + session_id])
+            if r_data:
+                session_data = r_data
                 session_type = 'redis'  # redis中有的数据，说明是老对话，也在redis中，近期的
             else:  # 从mysql中取值
                 sqlcmd = my.sqlc3({'session': session_id}, 'agent_record', '1', '1', '')
                 session_data_my = my.msqlc(sqlcmd)
                 if session_data_my:
                     session_data = session_data_my[0]
+                    session_data['data'] = eval(session_data['data'])  # my数据库中的data要转为字典
                     session_type = 'old'  # redis中无，my中有，说明数据很久了
+
 
         '''当为新对话或很久的老对话时，生成智能体初始化数据'''
         if session_type in ['new' , 'old']:
-            logger.warning(f'此为新对话或mysql中的老对话，生成智能体初始化数据={session_id}')
+            logger.warning(f'{session_type}此为新对话或mysql中的老对话，生成智能体初始化数据={session_id}')
             '''使用agentid拿到智能体配置数据'''
             agent = get_agent(q_data.get('agentid', '')).get('data', {})
             if agent:
-                ragtext = '空'
+                ragtext = ''
                 q_text = q_data.get('msg', [])[-1].get('content', '')  # 拿到本次的问题
                 # 处理rag知识搜索
                 if agent.get('rag', ''):  # 有值说明有配置，要查rag
                     if q_data.get('msg', []):
                         if q_text in ['你好', '您好', '你叫什么名字', '你是谁', 'hi', 'hello']:
                             logger.warning(f'用户常规性问候，无需查询rag')
-                            return ''
+                            # return ''
                         else:
                             ragtext = agent_rag_search({'text': q_text, 'rag': agent.get('rag', '')})
                 # 网页搜索
@@ -156,7 +160,7 @@ async def agent_work(q_data):
                     msg.append({'role': 'system', 'content': agent.get('prompt', '')})
                 if agent.get('context'):  # 增加上下文到msg中
                     msg.append({'role': 'system', 'content': agent.get('context', '')})
-                if ragtext:  # 增加文件内容到msg中
+                if filetext:  # 增加文件内容到msg中
                     msg.append({'role': 'system', 'content': f'文件内容：{filetext}'})
 
                 '''把初始化agent数据存到redis，便于后面对话使用'''
@@ -185,13 +189,18 @@ async def agent_work(q_data):
                                   "session": session_id, "name": agent.get('name', ''), "user": q_data.get('user', ''),
                                   "start_time":  nowtime, "last_time": nowtime, "tokens": 0, "type": "agent",
                                   "data": data_msg, "agent_data": r_agen_data, "fileid": q_data.get('fileid', [])}
+                if not session_data:
+                    session_data = r_session_data  # 当前对话数据为空时，直接使用新的r_session_data
                 rjg = zyredis.rjset(['agent_record', '.' + session_id, r_agen_data])
 
                 '''当为新对话时，存到mysql中'''
                 if session_type in ['new']:
-                    del r_session_data['agent_data']  # mysql中不存agent_data
-                    del r_session_data['fileid']  # mysql中不存fileid
-                    sqlcmd = my.sqlz(r_session_data, 'agent_record')
+                    my_session_data = copy.deepcopy(r_session_data)
+                    del my_session_data['agent_data']  # mysql中不存agent_data
+                    del my_session_data['fileid']  # mysql中不存fileid
+                    my_session_data['data'] = str(my_session_data['data'])  # 转为字符，不然my兼容不了
+                    sqlcmd = my.sqlz(my_session_data, 'agent_record')
+                    logger.warning(f"sqlcmd={sqlcmd}")
                     mjg = my.msqlzsg(sqlcmd)
 
                 '''组合本次请求中的file文件'''
@@ -218,7 +227,13 @@ async def agent_work(q_data):
                     p_msg = {'role': 'assistant', 'content': agent.get('prologue', '')}
                     msg.append(p_msg)  # 添加开场白到主msg中
                     this_msg.append(p_msg)  # 添加开场白到本次msg中
-                msg.extend(q_data.get('msg', []))  # 增加本次问题列表到msg中
+
+                #  增加本次问题到msg中
+                q_msg = q_data.get('msg', [])[-1]
+                logger.warning(f'q_msg={q_msg}')
+                msg.append(q_msg)  # 增加本次问题列表到msg中
+                this_msg.append(q_msg)  # 添加本次问题列表到本次msg中
+
                 if ragtext:  # 增加本次问题rag搜索结果到msg中
                     rag_msg = {'role': 'system', 'content': f'根据用户问题{q_text}，查到的外部知识为：{ragtext}'}
                     msg.append(rag_msg)  # 添加 rag搜索结果到主msg中
@@ -247,6 +262,10 @@ async def agent_work(q_data):
                 return {}
         else:
             logger.warning(f'此为redis缓存对话，使用数据库中的数据={session_id}')
+            # 判断agentid 与 历史中的agentid是否一致，不一致返回错误
+            if session_data.get('agentid', '') != q_data.get('agentid', ''):
+                logger.warning(f"agentid与历史使用不一致，请检查agentid={session_data.get("agentid", '')}，{q_data.get("agentid", '')}")
+                return {}
             '''使用agentid拿到智能体配置数据'''
             agent = get_agent(q_data.get('agentid', '')).get('data', {})
             if agent:
@@ -281,15 +300,18 @@ async def agent_work(q_data):
                 q_file_text = ''
                 if q_data.get('fileid', []):
                     logger.warning(f'处理本次用户请求文件内容')
+                    filelist = session_data.get('fileid', [])  # 已处理过的fileid
                     for qf in q_data.get('fileid', []):
-                        try:
-                            q_db_text = my.sqlc3({'fileid': qf}, 'file', '1', '1', '')
-                            if q_db_text and q_db_text[0].get('text', ''):
-                                f_text = f"文件名：{q_db_text[0].get('name', '')}，文件内容：{str(q_db_text[0].get('text', ''))}。  "
-                                q_file_text += f_text
-                        except Exception as e3:
-                            logger.error(f"文件知识搜索错误: {e3}")
-                            logger.error(traceback.format_exc())
+                        if qf not in filelist:
+                            try:
+                                q_db_text = my.sqlc3({'fileid': qf}, 'file', '1', '1', '')
+                                if q_db_text and q_db_text[0].get('text', ''):
+                                    f_text = f"文件名：{q_db_text[0].get('name', '')}，文件内容：{str(q_db_text[0].get('text', ''))}。  "
+                                    q_file_text += f_text
+                                    session_data['fileid'] = session_data['fileid']+[qf]  # 增加本次文件id到已处理过的fileid中
+                            except Exception as e3:
+                                logger.error(f"文件知识搜索错误: {e3}")
+                                logger.error(traceback.format_exc())
 
                 '''增加本次消息内容到msg中'''
                 this_msg = []
@@ -301,7 +323,14 @@ async def agent_work(q_data):
                     p_msg = {'role': 'assistant', 'content': agent.get('prologue', '')}
                     msg.append(p_msg)  # 添加开场白到主msg中
                     this_msg.append(p_msg)  # 添加开场白到本次msg中
-                msg.extend(q_data.get('msg', []))  # 增加本次问题列表到msg中
+
+                # msg.extend(q_data.get('msg', []))  # 增加本次问题列表到msg中
+                #  增加本次问题到msg中
+                q_msg = q_data.get('msg', [])[-1]  # 取前端推过来的最后一条
+                logger.warning(f'q_msg={q_msg}')
+                msg.append(q_msg)  # 增加本次问题列表到msg中
+                this_msg.append(q_msg)  # 添加本次问题列表到本次msg中
+
                 if ragtext:  # 增加本次问题rag搜索结果到msg中
                     rag_msg = {'role': 'system', 'content': f'根据用户问题{q_text}，查到的外部知识为：{ragtext}'}
                     msg.append(rag_msg)  # 添加 rag搜索结果到主msg中
@@ -354,6 +383,7 @@ async def agent_stream(request: Request, data):
         '''
         workdata = await agent_work(data)  # agent工作数据组合
         if workdata:
+            logger.warning(f'workdta={workdata}')
             # 初始化本轮对话数据
             nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
             this_data = {'start_time': nowtime, 'end_time': '', 'msg': workdata.get('this_msg', []),
@@ -368,8 +398,11 @@ async def agent_stream(request: Request, data):
                                         workdata.get('mod', ''), workdata.get('tools', None),
                                         workdata.get('temperature', 0.9), workdata.get('stream', True)):
                     logger.warning(f'LLM流返回={chunk}')
-                    llm_msg['content'] = llm_msg['content'] + chunk
-                    yield f"{chunk}"
+                    if type(chunk) in [dict, 'dict'] and 'reasoning_content' not in chunk:  # 此为运行日志
+                        this_data['log'] = this_data['log']+[chunk]
+                    else:  # 此为文本消息回复
+                        llm_msg['content'] = llm_msg['content'] + str(chunk)
+                        yield f"{chunk}"
 
             elif llmsdk in  ['ollama']:
                 # 调用llm大模型
@@ -386,9 +419,11 @@ async def agent_stream(request: Request, data):
             r_data = workdata.get('session_data', {}).get('data', [])+[this_data]
             session_id = data.get('session', 'a')
             if session_id:
-                rjg = zyredis.rjset(['agent_record', f'.{session_id}.data', r_data])  # 存到redis中
+                rjg = zyredis.rjset(['agent_record', f'.{session_id}.data', r_data])  # 存data到redis中
+                last_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+                rjg = zyredis.rjset(['agent_record', f'.{session_id}.last_time', last_time])  # 更新last_time到redis中
                 # 存到mysql中
-                sqlcmd = my.sqlg({'data': r_data},  'agent_record', {'session': session_id})
+                sqlcmd = my.sqlg({'data': str(r_data), 'last_time': last_time},  'agent_record', {'session': session_id})
                 mjg = my.msqlzsg(sqlcmd)
         else:
             logger.warning(f'agent工作处理函数错误')
@@ -405,7 +440,7 @@ async def agent_stream(request: Request, data):
     except Exception as e:
         logger.error(f'agent_stream错误信息：{e}')
         logger.error(traceback.format_exc())
-        yield f"错误"
+        yield f"agent_stream错误"
 
 
 
@@ -495,7 +530,43 @@ def agent_flow_start(data):
 
 
 
+'''agent对话记录定期删除'''
 
+
+def agent_record_init():
+    try:
+        '''智能体对话记录'''
+
+        agent_record_data = {"session": {"session": "session", "appid": "zy001", "user": "dws@zy", "agentid": "agent004",
+                                    "type": "agent", "start_time": "", "end_time": "", "tokens": "", "data": []}}
+        zyredis.rjset(['agent_record', '.', agent_record_data])
+        logger.warning(f'初始化智能体对话记录成功')
+    except  Exception as e:
+        logger.error(f"初始化智能体对话记录错误: {e}")
+        logger.error(traceback.format_exc())
+
+
+
+'''定时程序'''
+
+def reloadtime(inc):
+    try:
+        # 入库消息记录和套餐时长
+        nowtime = time.strftime('%H:%M', time.localtime(time.time()))
+        if nowtime in ['00:01']:
+            agent_record_init()
+            time.sleep(70)
+        t = Timer(inc, reloadtime, (inc,))
+        t.start()
+
+    except Exception as e:
+        logger.error("reload定时错误:")
+        logger.error(e)
+        logger.error(traceback.format_exc())
+
+
+# 开启定时reload
+reloadtime(5)
 
 
 

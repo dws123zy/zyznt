@@ -77,7 +77,7 @@ def rjget(cmd):
             except Exception as ekr:
                 logger.error("rjget执行命令错误:")
                 logger.error(ekr)
-                logger.error('rjget执行命令错误' + str(traceback.format_exc()))
+                # logger.error('rjget执行命令错误' + str(traceback.format_exc()))
             r.close()
             return jg
 

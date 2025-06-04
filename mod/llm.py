@@ -89,16 +89,16 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.9):
                     msg_type = 'tool'
                 # 按类型走对应的逻辑
                 if msg_type in ['tool']:  # 工具调用，收集数据
-                    print('工具调用数据块')
+                    logger.warning('工具调用数据块')
                     tool_data_chunk= delta.get('tool_calls')
                 else:  # 正常文本回复，非工具调用，流式回复
                     if delta.get('reasoning_content'):  # 输出推理内容+正常文本
-                        print('时间', time.time(), '内容=', delta['reasoning_content'])
-                        return f"reasoning_content:{delta['content']}  content:{delta['content']}"
+                        logger.warning(f'时间{time.time()}，推理内容={delta['reasoning_content']}')
+                        return f"reasoning_content:{delta['reasoning_content']}  content:{delta['content']}"
                     elif delta.get('content'):
-                        print('正常文本回复，非推理')
-                        print('时间', time.time(), '内容=', delta['content'])
-                        return f"content:delta['content']"
+                        # print('正常文本回复，非推理')
+                        logger.warning(f'时间{time.time()}, 输出内容={delta['content']}')
+                        return f"content:{delta['content']}"
             # 执行工具调用
             if tool_data_chunk:
                 # 组合获取完整工具调用数据
@@ -156,6 +156,9 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
         )
 
         # 执行LLM请求
+        now_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        yield {"time": now_time, "text": "开始调用llm"}
+        logger.warning(f'开始调用llm,现在的msg={msg}')
         completion = await client.chat.completions.create(
             model=mod,
             temperature=temperature,  # 热度
@@ -184,15 +187,15 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
                         msg_type = 'tool'
                     # 按类型走对应的逻辑
                     if msg_type in ['tool']:  # 工具调用，收集数据
-                        print('工具调用数据块')
+                        logger.warning('工具调用数据块')
                         tool_data_chunk.append(chunk_dict)
                     else:  # 正常文本回复，非工具调用，流式回复
                         if delta.get('reasoning_content'):  # 输出推理内容
-                            print('时间', time.time(), '内容=', delta['reasoning_content'])
-                            yield f"reasoning_content:{delta['content']}"
+                            logger.warning(f'时间{time.time()}, 推理内容={delta['reasoning_content']}')
+                            yield {'reasoning_content': delta['reasoning_content']}
                         elif delta.get('content'):
-                            print('正常文本回复，非推理')
-                            print('时间', time.time(), '内容=', delta['content'])
+                            # print('正常文本回复，非推理')
+                            logger.warning(f'时间{time.time()}, 回复内容={delta['content']}')
                             yield delta['content']
             # 执行工具调用
             if tool_data_chunk:
@@ -208,18 +211,24 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
                 tool_status = f'开始调用工具={tool_data[0].get('function', {}).get('name')}'
                 logger.warning(tool_status)
                 yield tool_status
+                now_time2 = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+                yield {"time": now_time2, "text": tool_status}
                 tool_result = await tool_call_result(tool_data)
                 # 组合到msg中返回给大模型
                 delta = tool_data_chunk[0]['choices'][0]['delta']
                 delta['tool_calls'] = tool_data
                 msg.append(delta)  # 增加llm工具调用数据
                 # 增加工具调用结果
+                now_time3 = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
                 if tool_result:
                     msg = msg+tool_result
+                    yield {"time": now_time3, "text": f'工具调用结果={tool_result}'}
                 else:
                     yield '调用工具失败'
+                    yield {"time": now_time3, "text": f'工具调用失败'}
                     break
                 # 执行LLM请求
+                yield {"time": now_time3, "text": '开始调用llm'}
                 logger.warning(f'现在的msg数据={msg}')
                 completion = await client.chat.completions.create(
                     model=mod,

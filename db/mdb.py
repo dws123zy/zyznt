@@ -226,7 +226,7 @@ agent_record = {
             ('user', 'varchar(50) default "" comment "创建人"'),
             ('department', 'varchar(50) default "" comment "部门"'),
             ('session', 'varchar(50) default "" comment "对话id，唯一"'),
-            ('tokens', 'int default "" comment "消耗的tokens数量"'),
+            ('tokens', 'int default 0 comment "消耗的tokens数量"'),
             ('data', 'text default "{}" comment "对话和运行数据,以json格式存储"')
         ],
         'indexes': [

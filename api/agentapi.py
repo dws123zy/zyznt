@@ -172,7 +172,7 @@ class cxzharg(publicarg):  # 通用查询类组合，公共+data
 '''agent智能体对话记录查询接口'''
 
 @router.post("/agent/record/get", tags=["智能体对话记录查询"])
-def agent_get(mydata: cxzharg):
+def agent_record_get(mydata: cxzharg):
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'收到的请求数据={data_dict}')

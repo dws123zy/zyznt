@@ -5,6 +5,8 @@ import traceback
 import time
 from pymysql.converters import escape_string
 import logging
+import json
+import base64
 
 
 '''日志'''
@@ -273,6 +275,27 @@ def sql3sz(data, name):
         print("sql插入组合命令错误:")
         print(ek)
         return 0
+
+
+
+'''agent_record智能体记录专用sql增，插入语句组合3双引号'''
+
+
+def list_to_safe_base64(data_list):
+    # json_str = json.dumps(data_list, ensure_ascii=False)
+    # return base64.urlsafe_b64encode(json_str.encode('utf-8')).decode('utf-8')
+    json_str = json.dumps(data_list, ensure_ascii=False)
+    encoded_data = base64.b64encode(json_str.encode('utf-8')).decode('ascii')
+    # print('encoded_data=', encoded_data)
+    return encoded_data
+
+def safe_base64_to_list(base64_str):
+    # decoded = base64.urlsafe_b64decode(base64_str).decode('utf-8')
+    # return json.loads(decoded)
+    decoded = base64.b64decode(base64_str)
+    return json.loads(decoded.decode('utf-8'))
+
+
 
 
 '''sql改组合'''

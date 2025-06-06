@@ -1,5 +1,5 @@
 # _*_coding:utf-8 _*_
-
+import json
 import time
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
@@ -196,7 +196,11 @@ def agent_record_get(mydata: cxzharg):
         for d in datac:
             try:
                 if d.get('data'):
-                    d['data'] = eval(d['data'])
+                    # d['data'] = json.load(d['data'])
+                    d['data'] = my.safe_base64_to_list(d['data'])
+                if d.get('title'):
+                    # d['data'] = json.load(d['data'])
+                    d['title'] = my.safe_base64_to_list(d['title'])
             except Exception as e:
                 logger.error(f" agent查询时转字典错误: {e}")
                 logger.error(traceback.format_exc())

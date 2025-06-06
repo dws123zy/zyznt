@@ -1,5 +1,5 @@
 # _*_coding:utf-8 _*_
-
+import json
 import traceback
 import logging
 from concurrent.futures import ThreadPoolExecutor  # 线程池
@@ -9,6 +9,7 @@ import importlib
 import time
 import copy
 from threading import Timer
+import base64
 
 from requests import session
 
@@ -114,7 +115,7 @@ async def agent_work(q_data):
                 session_data_my = my.msqlc(sqlcmd)
                 if session_data_my:
                     session_data = session_data_my[0]
-                    session_data['data'] = eval(session_data['data'])  # my数据库中的data要转为字典
+                    session_data['data'] = json.load(session_data['data'])  # my数据库中的data要转为字典
                     session_type = 'old'  # redis中无，my中有，说明数据很久了
 
 
@@ -125,7 +126,7 @@ async def agent_work(q_data):
             agent = get_agent(q_data.get('agentid', '')).get('data', {})
             if agent:
                 ragtext = ''
-                q_text = q_data.get('msg', [])[-1].get('content', '')  # 拿到本次的问题
+                q_text = str(q_data.get('msg', [])[-1].get('content', ''))  # 拿到本次的问题
                 # 处理rag知识搜索
                 if agent.get('rag', ''):  # 有值说明有配置，要查rag
                     if q_data.get('msg', []):
@@ -188,18 +189,21 @@ async def agent_work(q_data):
                 r_session_data = {"appid": agent.get('appid', ''), "agentid": q_data.get('agentid', ''),
                                   "session": session_id, "name": agent.get('name', ''), "user": q_data.get('user', ''),
                                   "start_time":  nowtime, "last_time": nowtime, "tokens": 0, "type": "agent",
-                                  "data": data_msg, "agent_data": r_agen_data, "fileid": q_data.get('fileid', [])}
+                                  "data": data_msg, "agent_data": r_agen_data, "fileid": q_data.get('fileid', []),
+                                  "title": q_text[:60]}
                 if not session_data:
                     session_data = r_session_data  # 当前对话数据为空时，直接使用新的r_session_data
-                rjg = zyredis.rjset(['agent_record', '.' + session_id, r_agen_data])
+                rjg = zyredis.rjset(['agent_record', '.' + session_id, r_session_data])
 
                 '''当为新对话时，存到mysql中'''
                 if session_type in ['new']:
                     my_session_data = copy.deepcopy(r_session_data)
                     del my_session_data['agent_data']  # mysql中不存agent_data
                     del my_session_data['fileid']  # mysql中不存fileid
-                    my_session_data['data'] = str(my_session_data['data'])  # 转为字符，不然my兼容不了
-                    sqlcmd = my.sqlz(my_session_data, 'agent_record')
+                    my_session_data['data'] = my.list_to_safe_base64(my_session_data['data'])
+                    my_session_data['title'] = my.list_to_safe_base64(my_session_data['title'])
+                    logger.warning("当为新对话时，存到mysql中")
+                    sqlcmd= my.sql3sz(my_session_data, 'agent_record')
                     logger.warning(f"sqlcmd={sqlcmd}")
                     mjg = my.msqlzsg(sqlcmd)
 
@@ -261,10 +265,10 @@ async def agent_work(q_data):
                 logger.warning(f'未找到智能体配置')
                 return {}
         else:
-            logger.warning(f'此为redis缓存对话，使用数据库中的数据={session_id}')
+            logger.warning(f'此为redis缓存对话，使用redis数据库中的数据={session_id}')
             # 判断agentid 与 历史中的agentid是否一致，不一致返回错误
             if session_data.get('agentid', '') != q_data.get('agentid', ''):
-                logger.warning(f"agentid与历史使用不一致，请检查agentid={session_data.get("agentid", '')}，{q_data.get("agentid", '')}")
+                logger.warning(f"agentid与历史使用不一致，请检查agentid：{session_data.get("agentid", '')} != {q_data.get("agentid", '')}")
                 return {}
             '''使用agentid拿到智能体配置数据'''
             agent = get_agent(q_data.get('agentid', '')).get('data', {})
@@ -340,17 +344,6 @@ async def agent_work(q_data):
                 # 数据组合
                 msg, apikey, url, mod, tools = None, temperature = 0.9, stream = True
                 '''
-                # rdata = {
-                #     'msg': msg,
-                #     'apikey': llmdata.get('apikey', ''),
-                #     'sdk': llmdata.get('sdk', 'openai'),
-                #     'url': llmdata.get('url', ''),
-                #     'mod': llmdata.get('module', ''),
-                #     'tools': agent.get('tools', ''),
-                #     'temperature': agent.get('temperature', 0.9),
-                #     'stream': agent.get('stream', True),
-                #     'this_msg': this_msg,
-                # }
                 rdata = session_data.get('agent_data', {})  # 增加当前智能体的初始化数据
                 rdata['this_msg'] = this_msg  # 增加本轮msg
                 rdata['msg'] = rdata['msg'] + msg
@@ -423,8 +416,9 @@ async def agent_stream(request: Request, data):
                 last_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
                 rjg = zyredis.rjset(['agent_record', f'.{session_id}.last_time', last_time])  # 更新last_time到redis中
                 # 存到mysql中
-                sqlcmd = my.sqlg({'data': str(r_data), 'last_time': last_time},  'agent_record', {'session': session_id})
-                mjg = my.msqlzsg(sqlcmd)
+                b64rdata = my.list_to_safe_base64(r_data)
+                sqlcmd = my.sqlg({'data': b64rdata, 'last_time': last_time},  'agent_record', {'session': session_id})
+                mjg = my.msqlzsg(sqlcmd)  # 存入mysql
         else:
             logger.warning(f'agent工作处理函数错误')
             yield f"agent工作处理函数错误"

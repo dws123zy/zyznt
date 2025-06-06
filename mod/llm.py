@@ -199,34 +199,30 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
                             yield delta['content']
             # 执行工具调用
             if tool_data_chunk:
-                yield '准备调用工具...'
+                # yield '准备调用工具...'
                 # 组合获取完整工具调用数据
                 tool_data = await parse_tool_data(tool_data_chunk)
                 logger.warning(f'解析后的工具数据={tool_data}')
-                if not tool_data:
-                    logger.warning('调用工具失败,无工具调用数据')
-                    yield '调用工具失败'
-                    break
-                # 调用工具
-                tool_status = f'开始调用工具={tool_data[0].get('function', {}).get('name')}'
-                logger.warning(tool_status)
-                yield tool_status
                 now_time2 = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-                yield {"time": now_time2, "text": tool_status}
-                tool_result = await tool_call_result(tool_data)
-                # 组合到msg中返回给大模型
-                delta = tool_data_chunk[0]['choices'][0]['delta']
-                delta['tool_calls'] = tool_data
-                msg.append(delta)  # 增加llm工具调用数据
+                if tool_data:
+                    # 调用工具
+                    tool_status = f'开始调用工具={tool_data[0].get('function', {}).get('name')}'
+                    logger.warning(tool_status)
+                    # yield tool_status
+                    yield {"time": now_time2, "text": tool_status}
+                    tool_result = await tool_call_result(tool_data)
+                else:
+                    logger.warning('调用工具失败,无工具调用数据')
+                    # yield {"time": now_time2, "text": "调用工具失败,无工具调用数据"}
+                    tool_result = {"content": "", "role": "tool", "tool_call_id": ""}
+                # 组合工具调用信息到msg中返回给大模型
+                llm_tool_call = {"role": "assistant", "tool_calls": tool_data}
+                msg.append(llm_tool_call)  # 增加llm工具调用数据
                 # 增加工具调用结果
                 now_time3 = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
                 if tool_result:
                     msg = msg+tool_result
                     yield {"time": now_time3, "text": f'工具调用结果={tool_result}'}
-                else:
-                    yield '调用工具失败'
-                    yield {"time": now_time3, "text": f'工具调用失败'}
-                    break
                 # 执行LLM请求
                 yield {"time": now_time3, "text": '开始调用llm'}
                 logger.warning(f'现在的msg数据={msg}')

@@ -221,6 +221,7 @@ agent_record = {
             ('type', 'varchar(20) default "agent" comment "智能体类型，agent、flow"'),
             ('name', 'varchar(200) default "" comment "智能体名称"'),
             ('agentid', 'varchar(20) default "" comment "智能体id"'),
+            ('title', 'varchar(80) default "" comment "此轮对话标题，取第一个问题的前60个字符"'),
             ('start_time', 'varchar(20) default "" comment "开始时间"'),
             ('last_time', 'varchar(20) default "" comment "最后对话时间"'),
             ('user', 'varchar(50) default "" comment "创建人"'),

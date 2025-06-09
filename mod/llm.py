@@ -7,6 +7,7 @@ import json
 import time
 import traceback
 import asyncio
+import re
 
 # 本地模块
 from data.data import get_zydict
@@ -177,6 +178,8 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
             # 流式获取
             msg_type = 'text'  # 默认为text，还有个是tool工具调用
             tool_data_chunk = []
+            # 推理开始和结束
+            reasoning = False
             async for chunk in completion:
                 chunk_dict = json.loads(chunk.model_dump_json())
                 choices = chunk_dict.get('choices')
@@ -192,10 +195,18 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
                     else:  # 正常文本回复，非工具调用，流式回复
                         if delta.get('reasoning_content'):  # 输出推理内容
                             logger.warning(f'时间{time.time()}, 推理内容={delta['reasoning_content']}')
-                            yield {'reasoning_content': delta['reasoning_content']}
+                            if not reasoning:  # 推理开始的标记处理
+                                reasoning = True
+                                yield '>'
+                            reasoning_text = re.sub(r'\n{2,}', '\n', delta['reasoning_content'])
+                            # reasoning_text = str(delta['reasoning_content']).replace('\n\n', '\n')
+                            yield reasoning_text
                         elif delta.get('content'):
                             # print('正常文本回复，非推理')
                             logger.warning(f'时间{time.time()}, 回复内容={delta['content']}')
+                            if reasoning:  # 推理结束的标记处理
+                                reasoning = False
+                                yield '\n\n'
                             yield delta['content']
             # 执行工具调用
             if tool_data_chunk:

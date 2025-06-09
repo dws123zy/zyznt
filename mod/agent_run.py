@@ -380,7 +380,7 @@ async def agent_stream(request: Request, data):
             # 初始化本轮对话数据
             nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
             this_data = {'start_time': nowtime, 'end_time': '', 'msg': workdata.get('this_msg', []),
-                         'custom_data': data.get('data', {}), 'log': []}
+                         'custom_data': data.get('custom_data', {}), 'log': []}
             llm_msg = {'role': 'assistant', 'content': ''}
             # 调用大模型
             llmsdk = workdata.get('sdk', '')

@@ -37,8 +37,9 @@ class agentpublicarg(BaseModel):  # 公共参数，所有接口必传
     session: str = Field('', description="当前对话id")
     msg: list = Field(frozen=True, description="对话列表")
     stream: bool = Field(False, description="流式交互")
-    data: dict = Field({}, description="自定义数据")
+    # data: dict = Field({}, description="自定义数据")
     fileid: list = Field([], description="文件id列表")
+    custom_data:  dict = Field({}, description="自定义数据")
 
 
 '''******agent智能体运行******'''

@@ -2,10 +2,11 @@
 
 import time
 from fastapi import APIRouter, File, UploadFile, Form, Depends, HTTPException, Response
+from fastapi.responses import FileResponse
 import logging
 from pydantic import BaseModel, Field
 import os
-from datetime import datetime
+# from datetime import datetime
 import json
 import traceback
 import random
@@ -17,6 +18,7 @@ from typing import Union
 from db import my, mv
 from data.data import tokenac, get_filter, get_zydict, get_rag
 from mod.file import fileanalysis, partjx, zyembd, file_read
+from mod.tool import openfile  # 文件打开
 
 
 '''此模块用于rag知识库数据配置、查询与管理'''
@@ -30,6 +32,8 @@ logger = logging.getLogger(__name__)
 '''全局参数'''
 
 upload_dir = '../file/'
+
+file_url = eval(openfile('../file/conf.txt')).get('fileurl', 'http://127.0.0.1:8000/getfile?')  # 对外url地址
 
 
 '''定义子模块路由'''
@@ -381,7 +385,7 @@ def file_get(mydata: cxzharg):
 
 '''文件上传增加接口'''
 
-@router.post("/file/add", tags=["RAG文件上传"])
+@router.post("/file/add", tags=["文件上传"])
 async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)):
     try:
         data_dict = json.loads(mydata)
@@ -389,7 +393,11 @@ async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)
         results = []
 
         # 组合文件路径
-        fdir = upload_dir + str(data_dict.get('appid', ''))+'/'+str(data_dict.get('ragid', ''))
+        id_dir = str(data_dict.get('ragid', ''))  # 优先使用ragid
+        if not id_dir:  # ragid无值时用agentid
+            id_dir = str(data_dict.get('agentid', ''))
+        appid = str(data_dict.get('appid', ''))
+        fdir = upload_dir + appid +'/'+id_dir
         os.makedirs(fdir, exist_ok=True)
         for file in files:
             try:
@@ -410,6 +418,7 @@ async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)
                     "filename": file.filename,
                     "size": str(round(os.path.getsize(file_path)/1024, 2))+'KB',
                     "format": file.content_type,
+                    "url": f"{file_url}appid={appid}&getid={id_dir}&filename={file.filename}",
                     "status": "success"
                 })
 
@@ -446,6 +455,21 @@ async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
+
+'''文件访问接口'''
+
+@router.get("/file/getfile", tags=["文件/图片访问"])
+async def protected_image(appid: str, getid: str, filename: str):
+    try:
+        if appid and id and filename:
+            file_dir = upload_dir + appid +'/'+getid+'/'
+            return FileResponse(os.path.join(file_dir, filename))
+        else:
+            raise HTTPException(status_code=403, detail="Invalid credentials")
+    except  Exception as e:
+        logger.error(f"文件访问接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
 
 
 '''文件修改接口'''

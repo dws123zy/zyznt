@@ -42,7 +42,7 @@ agentdata = {}
 # zyzntcd = []
 
 # 打开 JSON 文件并读取内容
-with open('conf/cd.json', 'r', encoding='utf-8') as file:
+with open('db/cd.json', 'r', encoding='utf-8') as file:
     zyzntcd = json.load(file)  # 自动转换为字典或列表
 
 

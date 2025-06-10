@@ -1,22 +1,24 @@
 # _*_coding:utf-8 _*_
 
 import time
-from fastapi import APIRouter, File, UploadFile, Form, Depends, HTTPException, Response
+from fastapi import APIRouter  #, File, UploadFile, Form, Depends, HTTPException, Response
 import logging
 from pydantic import BaseModel, Field
-import os
-from datetime import datetime
-import json
+from typing import Union, Any
+# import os
+# from datetime import datetime
+# import json
 import traceback
 import random
 import string
-import copy
-from typing import Union
+# import copy
+# from typing import Union
 
 # 本地模块
-from db import my, mv
-from data.data import tokenac, get_filter, get_zydict, get_rag
-from mod.file import fileanalysis, partjx, zyembd
+from db import my  #, mv
+from data.data import tokenac, get_zydict  # get_filter, get_rag
+# from mod.file import fileanalysis, partjx, zyembd
+from mod.zymcp import mcp_client
 
 
 '''此模块用于agent智能体、智能流数据配置与管理'''
@@ -414,9 +416,45 @@ def datadict_del(mydata: zydictzgsarg):
 
 
 
+'''mcp 服务管理'''
+
+'''mcp统一总入参格式类定义'''
 
 
+class mcppublicarg(BaseModel):  # 公共参数，所有接口必传
+    user: str = Field(frozen=True, description="用户名")
+    appid: str = Field(frozen=True, description="企业id")
+    token: str = Field(frozen=True, description="验证token")
+    time: str = Field(frozen=True, description="当前时间戳,精确到秒，也就是10位")
+    data: Any = Field(frozen=True, description="mcp数据data")
 
+
+'''mcp工具列表获取接口'''
+
+@router.post("/mcp/tools/get", tags=["mcp tools获取"])
+async def mcp_tools_get(mydata: mcppublicarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        mcp_data = data_dict.get('data', {})
+        # 调用mcp模块工具获取工具列表
+        tools_data = await mcp_client(mcp_data,  'list_tool')
+        if tools_data:
+            logger.warning(f'mcp工具列表获取成功')
+            # 改写工具中的name，加上/mcp server name
+            for tool in tools_data:
+                tool['function']['name'] = f"{tool['function']['name']}/{mcp_data.get('name', '')}"
+            return {"msg": "success", "code": "200", "data": tools_data}
+        else:
+            return {"msg": "mcp error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"datadict数据字典查询接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
 
 
 

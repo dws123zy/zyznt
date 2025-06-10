@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 '''人机验证开关配置'''
 
-verify = eval(openfile('conf/verify.txt')).get('verify', 1)
+verify = eval(openfile('../file/conf.txt')).get('verify', 1)
 
 
 '''人机验证码生成'''

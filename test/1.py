@@ -259,7 +259,7 @@ s1 = '123456789'
 
 print(s1[:15])
 
-
+ag2 = {"mcpServers": {"baidu-maps": {"url": "https://mcp.map.baidu.com/sse?ak=oqIwmwH7yNI9v1EQQXbTIoo3VB1hPsFk"}},"name": "baidu-maps","mcp_type": "sse","tools": []}
 
 
 

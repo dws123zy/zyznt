@@ -559,8 +559,8 @@ def reloadtime(inc):
         logger.error(traceback.format_exc())
 
 
-# 开启定时reload
-reloadtime(5)
+# 开启定时reload  初始化对话，验证码 1
+# reloadtime(5)
 
 
 

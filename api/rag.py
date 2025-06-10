@@ -386,10 +386,18 @@ def file_get(mydata: cxzharg):
 '''文件上传增加接口'''
 
 @router.post("/file/add", tags=["文件上传"])
-async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)):
+async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''), agentid:  str=Form(''),
+                       appid: str = Form(''), user: str = Form(''), token: str = Form('')):
     try:
-        data_dict = json.loads(mydata)
-        logger.warning(f'收到的请求数据={data_dict}')
+        data_dict = {'ragid': ragid, 'agentid': agentid, 'appid': appid}
+        logger.warning(f'收到的请求数据={data_dict}, appid={appid}, user={user}, token={token}')
+
+        # 验证token、user
+        if not tokenac(token, user):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+
+        # 返回数据
         results = []
 
         # 组合文件路径
@@ -459,7 +467,7 @@ async def upload_files(mydata: str=Form(''), files: list[UploadFile] = File(...)
 '''文件访问接口'''
 
 @router.get("/file/getfile", tags=["文件/图片访问"])
-async def protected_image(appid: str, getid: str, filename: str):
+def file_getfile(appid: str, getid: str, filename: str):
     try:
         if appid and id and filename:
             file_dir = upload_dir + appid +'/'+getid+'/'

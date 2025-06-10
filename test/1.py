@@ -263,7 +263,7 @@ ag2 = {"mcpServers": {"baidu-maps": {"url": "https://mcp.map.baidu.com/sse?ak=oq
 
 
 
+img = "http://zyznt.zy-yun.cn:8000/file/getfile?appid=zy001&getid=agent04&filename=知识库.svg"
 
-
-
+print(len(img))
 

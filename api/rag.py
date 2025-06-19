@@ -111,7 +111,7 @@ def getfilter(mydata: publicarg, cmd: str):
             logger.warning(f'token验证失败')
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         # 处理cmd，返回对应的检索项数据
-        if cmd in ['file', 'rag', 'part']:  # 按用户和cmd获取检索项
+        if cmd in ['file', 'rag', 'part', 'agent']:  # 按用户和cmd获取检索项
             filterdata = get_filter(cmd, data_dict.get('user', ''))
             return {"msg": "success", "code": "200", "data": {"filter": filterdata}}
         elif cmd in ['cs']:  # 按cmd获取检索项

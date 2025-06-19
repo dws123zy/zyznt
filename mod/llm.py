@@ -255,7 +255,7 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
         logger.error({"openai_llm stream错误:": e})
         logger.error(e)
         logger.error(traceback.format_exc())
-        yield 'openai_llm stream错误，暂停执行'
+        yield 'llm工作中遇到点麻烦，请稍后再试'
 
 
 

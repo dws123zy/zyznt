@@ -6,10 +6,11 @@ import asyncio
 import json
 import time
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-from mcp.client.sse import sse_client
-from mcp.client.streamable_http import streamablehttp_client
+# from mcp import ClientSession, StdioServerParameters
+# from mcp.client.stdio import stdio_client
+# from mcp.client.sse import sse_client
+# from mcp.client.streamable_http import streamablehttp_client
+from fastmcp import Client
 
 
 
@@ -22,81 +23,119 @@ logger = logging.getLogger(__name__)
 
 
 
-'''mcp获取初始化并执行'''
+# '''mcp获取初始化并执行'''
+#
+# async def mcp_run(session, cmd, tooldata={}):
+#     tool_info = {"content": "", "role": "tool", "tool_call_id": tooldata.get("id", "")}  # 工具调用结果格式
+#     try:
+#         # 初始化会话
+#         logger.warning("初始化连接...")
+#         await session.initialize()
+#         if cmd in ['call_tool']:
+#             logger.warning("调用mcp工具Calling tool...")
+#             function = tooldata.get('function', {})
+#             tool_name = function.get('name', '').split('/')[0]
+#             result = await session.call_tool(tool_name, arguments=json.loads(function.get('arguments')))
+#             logger.warning(f"result_all={result}\n\n\n")
+#             logger.warning(f"result={result.content}\n\n\n")
+#             tool_info["content"] = str(result.content)
+#             return tool_info
+#         elif cmd in ['list_tool']:
+#             logger.warning("获取工具列表...")
+#             tools = await session.list_tools()
+#             logger.warning(f"可用工具: {[tool.name for tool in tools.tools]}")
+#             # print('转为列表')
+#             toolslist = [{"type": "function", "function": {"name": t.name, "description": t.description,
+#                                                            "parameters": t.inputSchema}} for t in
+#                          tools.tools]
+#             return toolslist
+#         else:
+#             logger.warning(f"未知的mcp运行={cmd}")
+#             return ''
+#     except Exception as e:
+#         print(f"mcp执行错误:{e}")
+#         print(traceback.format_exc())
+#         return tool_info
+#
+#
+# '''mcp_client连接与运行'''
+#
+# async def mcp_client(mcp_data, cmd, tooldata={}):
+#     try:
+#         logger.warning(f"开始执行mcp_client, mcp_data={mcp_data}, cmd={cmd}, tooldata={tooldata}")
+#         tool_name = tooldata.get('function', {}).get('name', '')
+#         mcp_type = mcp_data.get('mcp_type', 'http')
+#         mcpServers = mcp_data.get('mcpServers', {})
+#         mcpdata2 =mcpServers.get(mcp_data.get('name'), {})
+#         if mcp_type in ['http', 'streamablehttp']:  # http方式的mcp
+#             logger.warning(f"开始用streamable执行mcp：{mcp_type}, name={tool_name}")
+#             url = mcpdata2.get('url', '')
+#             async with streamablehttp_client(url) as (read_stream, write_stream, _,):
+#                 print("连接成功")
+#                 # print(f'read_stream: {read_stream}, write_stream: {write_stream}')
+#                 # Create a session using the client streams
+#                 async with ClientSession(read_stream, write_stream) as session:
+#                     return await mcp_run(session, cmd, tooldata)
+#
+#         elif mcp_type in ['sse']:
+#             logger.warning(f"开始用sse执行mcp：{mcp_type}, name={tool_name}")
+#             url = mcpdata2.get('url', '')
+#             async with sse_client(url) as (read, write):
+#                 print("连接成功")
+#                 async with ClientSession(read, write) as session:
+#                     return await mcp_run(session, cmd, tooldata)
+#
+#         elif mcp_type in ['stdio']:
+#             logger.warning(f"开始执行mcp：{mcp_type}, name={tool_name}")
+#             return []
+#
+#         else:
+#             logger.warning(f"未知的mcp类型:{mcp_type}")
+#             return []
+#     except Exception as e:
+#         logger.error(f'mcprun错误信息：{e}')
+#         logger.error(traceback.format_exc())
+#         return []
 
-async def mcp_run(session, cmd, tooldata={}):
-    tool_info = {"content": "", "role": "tool", "tool_call_id": tooldata.get("id", "")}  # 工具调用结果格式
-    try:
-        # 初始化会话
-        logger.warning("初始化连接...")
-        await session.initialize()
-        if cmd in ['call_tool']:
-            logger.warning("调用mcp工具Calling tool...")
-            function = tooldata.get('function', {})
-            tool_name = function.get('name', '').split('/')[0]
-            result = await session.call_tool(tool_name, arguments=json.loads(function.get('arguments')))
-            logger.warning(f"result_all={result}\n\n\n")
-            logger.warning(f"result={result.content}\n\n\n")
-            tool_info["content"] = str(result.content)
-            return tool_info
-        elif cmd in ['list_tool']:
-            logger.warning("获取工具列表...")
-            tools = await session.list_tools()
-            logger.warning(f"可用工具: {[tool.name for tool in tools.tools]}")
-            # print('转为列表')
-            toolslist = [{"type": "function", "function": {"name": t.name, "description": t.description,
-                                                           "parameters": t.inputSchema}} for t in
-                         tools.tools]
-            return toolslist
-        else:
-            logger.warning(f"未知的mcp运行={cmd}")
-            return ''
-    except Exception as e:
-        print(f"mcp执行错误:{e}")
-        print(traceback.format_exc())
-        return tool_info
 
-
-'''mcp_client连接与运行'''
+'''mcp_client连接与运行fastmcp'''
 
 async def mcp_client(mcp_data, cmd, tooldata={}):
     try:
         logger.warning(f"开始执行mcp_client, mcp_data={mcp_data}, cmd={cmd}, tooldata={tooldata}")
+        tool_info = {"content": "", "role": "tool", "tool_call_id": tooldata.get("id", "")}  # 工具调用结果格式
         tool_name = tooldata.get('function', {}).get('name', '')
-        mcp_type = mcp_data.get('mcp_type', 'http')
-        mcpServers = mcp_data.get('mcpServers', {})
-        mcpdata2 =mcpServers.get(mcp_data.get('name'), {})
-        if mcp_type in ['http', 'streamablehttp']:  # http方式的mcp
-            logger.warning(f"开始用streamable执行mcp：{mcp_type}, name={tool_name}")
-            url = mcpdata2.get('url', '')
-            async with streamablehttp_client(url) as (read_stream, write_stream, _,):
-                print("连接成功")
-                # print(f'read_stream: {read_stream}, write_stream: {write_stream}')
-                # Create a session using the client streams
-                async with ClientSession(read_stream, write_stream) as session:
-                    return await mcp_run(session, cmd, tooldata)
+        client = Client(mcp_data)
+        async with client:
+            logger.warning(f"{tool_name}-Client connected: {client.is_connected()}")
+            if cmd in ['call_tool']:
+                logger.warning("调用mcp工具Calling tool...")
+                function = tooldata.get('function', {})
+                tool_name = function.get('name', '').split('/')[0]
+                result = await client.call_tool(tool_name, arguments=json.loads(function.get('arguments')))
+                logger.warning(f"result_all={result}\n\n\n")
+                logger.warning(f"result={result}\n\n\n")
+                tool_info["content"] = str(result)
+                return tool_info
+            elif cmd in ['list_tool']:
+                logger.warning("获取工具列表...")
+                tools = await client.list_tools()
+                logger.warning(f"可用工具: {[tool.name for tool in tools]}")
+                # print('转为列表')
+                toolslist = [{"type": "function", "function": {"name": t.name, "description": t.description,
+                                                               "parameters": t.inputSchema}} for t in tools]
+                return toolslist
+            else:
+                logger.warning(f"未知的mcp运行={cmd}")
+                return ''
 
-        elif mcp_type in ['sse']:
-            logger.warning(f"开始用sse执行mcp：{mcp_type}, name={tool_name}")
-            url = mcpdata2.get('url', '')
-            async with sse_client(url) as (read, write):
-                print("连接成功")
-                async with ClientSession(read, write) as session:
-                    return await mcp_run(session, cmd, tooldata)
+        # Connection is closed automatically here
+        logger.warning(f"Client connected: {client.is_connected()}")
 
-        elif mcp_type in ['stdio']:
-            logger.warning(f"开始执行mcp：{mcp_type}, name={tool_name}")
-            return []
-
-        else:
-            logger.warning(f"未知的mcp类型:{mcp_type}")
-            return []
     except Exception as e:
         logger.error(f'mcprun错误信息：{e}')
         logger.error(traceback.format_exc())
         return []
-
-
 
 
 '''

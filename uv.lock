@@ -30,6 +30,18 @@ wheels = [
 ]
 
 [[package]]
+name = "authlib"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a2/9d/b1e08d36899c12c8b894a44a5583ee157789f26fc4b176f8e4b6217b56e1/authlib-1.6.0.tar.gz", hash = "sha256:4367d32031b7af175ad3a323d571dc7257b7099d55978087ceae4a0d88cd3210", size = 158371 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/29/587c189bbab1ccc8c86a03a5d0e13873df916380ef1be461ebe6acebf48d/authlib-1.6.0-py2.py3-none-any.whl", hash = "sha256:91685589498f79e8655e8a8947431ad6288831d643f11c55c2143ffcc738048d", size = 239981 },
+]
+
+[[package]]
 name = "captcha"
 version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -227,6 +239,18 @@ wheels = [
 ]
 
 [[package]]
+name = "exceptiongroup"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0b/9f/a65090624ecf468cdca03533906e7c69ed7588582240cfe7cc9e770b50eb/exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88", size = 29749 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/f4/c6e662dade71f56cd2f3735141b265c3c79293c109549c1e6933b0651ffc/exceptiongroup-1.3.0-py3-none-any.whl", hash = "sha256:4d111e6e0c13d0644cad6ddaa7ed0261a0b36971f6d23e7ec9b4b9097da78a10", size = 16674 },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.115.12"
 source = { registry = "https://pypi.org/simple" }
@@ -267,6 +291,25 @@ wheels = [
 [package.optional-dependencies]
 standard = [
     { name = "uvicorn", extra = ["standard"] },
+]
+
+[[package]]
+name = "fastmcp"
+version = "2.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "authlib" },
+    { name = "exceptiongroup" },
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "openapi-pydantic" },
+    { name = "python-dotenv" },
+    { name = "rich" },
+    { name = "typer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/04/76/d9b352dd632dbac9eea3255df7bba6d83b2def769b388ec332368d7b4638/fastmcp-2.8.1.tar.gz", hash = "sha256:c89d8ce8bf53a166eda444cfdcb2c638170e62445487229fbaf340aed31beeaf", size = 2559427 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/f9/ecb902857d634e81287f205954ef1c69637f27b487b109bf3b4b62d3dbe7/fastmcp-2.8.1-py3-none-any.whl", hash = "sha256:3b56a7bbab6bbac64d2a251a98b3dec5bb822ab1e4e9f20bb259add028b10d44", size = 138191 },
 ]
 
 [[package]]
@@ -594,7 +637,7 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.8.1"
+version = "1.9.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -607,9 +650,9 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/13/16b712e8a3be6a736b411df2fc6b4e75eb1d3e99b1cd57a3a1decf17f612/mcp-1.8.1.tar.gz", hash = "sha256:ec0646271d93749f784d2316fb5fe6102fb0d1be788ec70a9e2517e8f2722c0e", size = 265605 }
+sdist = { url = "https://files.pythonhosted.org/packages/06/f2/dc2450e566eeccf92d89a00c3e813234ad58e2ba1e31d11467a09ac4f3b9/mcp-1.9.4.tar.gz", hash = "sha256:cfb0bcd1a9535b42edaef89947b9e18a8feb49362e1cc059d6e7fc636f2cb09f", size = 333294 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1c/5d/91cf0d40e40ae9ecf8d4004e0f9611eea86085aa0b5505493e0ff53972da/mcp-1.8.1-py3-none-any.whl", hash = "sha256:948e03783859fa35abe05b9b6c0a1d5519be452fc079dc8d7f682549591c1770", size = 119761 },
+    { url = "https://files.pythonhosted.org/packages/97/fc/80e655c955137393c443842ffcc4feccab5b12fa7cb8de9ced90f90e6998/mcp-1.9.4-py3-none-any.whl", hash = "sha256:7fcf36b62936adb8e63f89346bccca1268eeca9bf6dfb562ee10b1dfbda9dac0", size = 130232 },
 ]
 
 [[package]]
@@ -690,6 +733,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d1/7c/7c48bac9be52680e41e99ae7649d5da3a0184cd94081e028897f9005aa03/openai-1.78.0.tar.gz", hash = "sha256:254aef4980688468e96cbddb1f348ed01d274d02c64c6c69b0334bf001fb62b3", size = 442652 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cc/41/d64a6c56d0ec886b834caff7a07fc4d43e1987895594b144757e7a6b90d7/openai-1.78.0-py3-none-any.whl", hash = "sha256:1ade6a48cd323ad8a7715e7e1669bb97a17e1a5b8a916644261aaef4bf284778", size = 680407 },
+]
+
+[[package]]
+name = "openapi-pydantic"
+version = "0.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/2e/58d83848dd1a79cb92ed8e63f6ba901ca282c5f09d04af9423ec26c56fd7/openapi_pydantic-0.5.1.tar.gz", hash = "sha256:ff6835af6bde7a459fb93eb93bb92b8749b754fc6e51b2f1590a19dc3005ee0d", size = 60892 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/cf/03675d8bd8ecbf4445504d8071adab19f5f993676795708e36402ab38263/openapi_pydantic-0.5.1-py3-none-any.whl", hash = "sha256:a3a09ef4586f5bd760a8df7f43028b60cafb6d9f61de2acba9574766255ab146", size = 96381 },
 ]
 
 [[package]]
@@ -1501,6 +1556,7 @@ dependencies = [
     { name = "captcha" },
     { name = "coloredlogs" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "fastmcp" },
     { name = "httpx" },
     { name = "langchain-text-splitters" },
     { name = "mcp" },
@@ -1519,6 +1575,7 @@ requires-dist = [
     { name = "captcha", specifier = ">=0.7.1" },
     { name = "coloredlogs", specifier = ">=15.0.1" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.12" },
+    { name = "fastmcp", specifier = ">=2.8.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "langchain-text-splitters", specifier = ">=0.3.8" },
     { name = "mcp", specifier = ">=1.8.1" },

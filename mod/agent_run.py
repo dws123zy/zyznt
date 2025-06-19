@@ -354,7 +354,7 @@ async def agent_work(q_data):
                 logger.warning(f'未找到智能体配置')
                 return {}
     except Exception as e:
-        logger.error(f'agent工作处理函数错误: {e}')
+        logger.error(f'agent_work工作处理函数错误: {e}')
         logger.error(traceback.format_exc())
         return ''
 
@@ -421,7 +421,7 @@ async def agent_stream(request: Request, data):
                 mjg = my.msqlzsg(sqlcmd)  # 存入mysql
         else:
             logger.warning(f'agent工作处理函数错误')
-            yield f"agent工作处理函数错误"
+            yield f"agent工作中遇到了点麻烦，请稍后再试"
 
         # for i in range(10):
         #     if await request.is_disconnected():
@@ -434,7 +434,7 @@ async def agent_stream(request: Request, data):
     except Exception as e:
         logger.error(f'agent_stream错误信息：{e}')
         logger.error(traceback.format_exc())
-        yield f"agent_stream错误"
+        yield f"智能体工作中遇到了点麻烦，请稍后再试"
 
 
 

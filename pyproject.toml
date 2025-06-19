@@ -8,6 +8,7 @@ dependencies = [
     "captcha>=0.7.1",
     "coloredlogs>=15.0.1",
     "fastapi[standard]>=0.115.12",
+    "fastmcp>=2.8.1",
     "httpx>=0.28.1",
     "langchain-text-splitters>=0.3.8",
     "mcp>=1.8.1",

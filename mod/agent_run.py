@@ -389,7 +389,7 @@ async def agent_stream(request: Request, data):
                 logger.warning(f'使用openai-sdk调用大模型')
                 async for chunk in openai_llm_stream(workdata.get('msg', []), workdata.get('apikey', ''), workdata.get('url', ''),
                                         workdata.get('mod', ''), workdata.get('tools', None),
-                                        workdata.get('temperature', 0.9), workdata.get('stream', True)):
+                                        workdata.get('temperature', 0.7), workdata.get('stream', True)):
                     logger.warning(f'LLM流返回={chunk}')
                     if type(chunk) in [dict, 'dict'] and 'reasoning_content' not in chunk:  # 此为运行日志
                         this_data['log'] = this_data['log']+[chunk]

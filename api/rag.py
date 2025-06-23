@@ -16,7 +16,7 @@ from typing import Union
 
 # 本地模块
 from db import my, mv
-from data.data import tokenac, get_filter, get_zydict, get_rag
+from data.data import tokenac, get_filter, get_zydict, get_rag, loadrag
 from mod.file import fileanalysis, partjx, zyembd, file_read
 from mod.tool import openfile  # 文件打开
 
@@ -232,6 +232,7 @@ def rag_add(mydata: ragzgsarg):
                     print('vjg=', vjg)
                     if vjg:
                         logger.warning(f'创建向量数据库表成功{ragid}')
+                        loadrag()  # 重新加载 rag数据到内存
                         # 返回结果
                         return {"msg": "success", "code": "200", "data": ''}
 
@@ -282,6 +283,7 @@ def rag_update(mydata: ragzgsarg):
         jg = my.msqlzsg(sql)
 
         # 禁止修改向量数据库中的表、字段、索引、bm25，只有删除重建
+        loadrag()  # 重新加载 rag数据到内存
         # 返回结果
         return {"msg": "success", "code": "200", "data": ''}
     except Exception as e:
@@ -316,6 +318,7 @@ def rag_del(mydata: ragzgsarg):
             vjg = mv.drop_collections(ragid)
             if vjg:
                 logger.warning(f'删除向量数据库表、mysql数据库成功{ragid}')
+                loadrag()  # 重新加载 rag数据到内存
                 # 返回结果
                 return {"msg": "success", "code": "200", "data": ''}
 
@@ -387,7 +390,7 @@ def file_get(mydata: cxzharg):
 
 @router.post("/file/add", tags=["文件上传"])
 async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''), agentid:  str=Form(''),
-                       appid: str = Form(''), user: str = Form(''), token: str = Form('')):
+                       appid: str = Form(''), user: str = Form(''), token: str = Form(''), read: bool = Form(False)):
     try:
         data_dict = {'ragid': ragid, 'agentid': agentid, 'appid': appid}
         logger.warning(f'收到的请求数据={data_dict}, appid={appid}, user={user}, token={token}')
@@ -404,6 +407,8 @@ async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''),
         id_dir = str(data_dict.get('ragid', ''))  # 优先使用ragid
         if not id_dir:  # ragid无值时用agentid
             id_dir = str(data_dict.get('agentid', ''))
+            if not id_dir:  # agentid无值时用agentfile
+                id_dir = 'agentfile'
         appid = str(data_dict.get('appid', ''))
         fdir = upload_dir + appid +'/'+id_dir
         os.makedirs(fdir, exist_ok=True)
@@ -446,7 +451,7 @@ async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''),
                 fileid = str(int(time.time()*1000))+''.join(random.choice(characters) for _ in range(3))
                 ragid = data_dict.get('data', {}).get('ragid') if data_dict.get('data', {}).get('ragid') else ''
                 text = ''
-                if data_dict.get('data', {}).get('type') in ['agent']:
+                if data_dict.get('read'):  # 要求读取文件内容并存到数据库中
                     text = file_read(f.get('filename', ''), ragid, data_dict.get('appid', ''))
                 filedata = {'name': f.get('filename', ''), 'size': f.get('size', 0), 'time': nowtime, 'text': text,
                             'metadata': str({"format": f.get('format', '')}), 'appid': data_dict.get('appid', ''),
@@ -456,6 +461,9 @@ async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''),
                 sql = my.sql3sz(filedata, 'file')
                 jg = my.msqlzsg(sql)  # 执行sql语句，增加文件到数据库
                 logger.warning(f'文件上传入库结果={jg}，sql={sql}')
+                # 存mysql成功的增加文件id
+                if jg:
+                    f['fileid'] = fileid
 
         return {"msg": "文件上传完成", "code": "200", "data": results}
     except Exception as e:

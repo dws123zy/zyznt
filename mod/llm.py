@@ -52,7 +52,7 @@ base_url='https://ark.cn-beijing.volces.com/api/v3',  # 火山
 
 '''openai-sdk-llm大模型'''
 
-def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.9):
+def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
     try:
         if not tools:
             tools = None

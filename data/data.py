@@ -37,6 +37,9 @@ ragdata = {}
 agentdata = {}
 
 
+'''img头像url  https://zy-wendang.oss-cn-hangzhou.aliyuncs.com/img/%E5%A4%B4%E5%83%8F%20%E5%A5%B3%E5%AD%A9.png'''
+imgurl = "https://zy-wendang.oss-cn-hangzhou.aliyuncs.com/img/touxiang2.png"
+
 '''cd菜单数据'''
 
 # zyzntcd = []
@@ -233,7 +236,8 @@ def logonac(data):
                 sqlcmd = f"update user set token='{token}',expire={expire} where user='{data.get('user')}'"
                 msqlzsg(sqlcmd)
                 # 返回token
-                return {'code': '200', 'msg': '登录成功', 'data': {'token': token, 'cd': zyzntcd, 'appid': appid}}
+                return {'code': '200', 'msg': '登录成功', 'data': {'token': token, 'cd': zyzntcd, 'appid': appid,
+                                                                   'url': imgurl}}
             else:
                 return {'code': '403', 'msg': '密码错误'}
         else:

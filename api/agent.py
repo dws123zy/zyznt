@@ -16,7 +16,7 @@ import string
 
 # 本地模块
 from db import my  #, mv
-from data.data import tokenac, get_zydict  # get_filter, get_rag
+from data.data import tokenac, get_zydict, loadzydict, loadagent  # get_filter, get_rag
 # from mod.file import fileanalysis, partjx, zyembd
 from mod.zymcp import mcp_client
 
@@ -140,7 +140,8 @@ def agent_add(mydata: agentzgsarg):
         sql = my.sqlz(data2, 'agent')
         jg = my.msqlzsg(sql)
         if jg:
-            logger.warning(f'创建向量数据库表成功{agentid}')
+            logger.warning(f'存入数据库成功{agentid}')
+            loadagent()  # 更新agent数据到内存
             # 返回结果
             return {"msg": "success", "code": "200", "data": ''}
 
@@ -188,7 +189,7 @@ def agent_update(mydata: agentzgsarg):
         sql = my.sqlg(data2, 'agent', filterdata)
         jg = my.msqlzsg(sql)
         if jg:
-            # 禁止修改向量数据库中的表、字段、索引、bm25，只有删除重建
+            loadagent()  # 更新agent数据到内存
             # 返回结果
             return {"msg": "success", "code": "200", "data": ''}
         logger.warning(f'修改知识库失败{agentid}')
@@ -220,7 +221,8 @@ def agent_del(mydata: agentzgsarg):
         sql = my.sqls('agent', filterdata)
         jg = my.msqlzsg(sql)
         if jg:
-            logger.warning(f'删除向量数据库表、mysql数据库成功{agentid}')
+            loadagent()  # 更新agent数据到内存
+            logger.warning(f'删除数据库表、mysql数据库成功{agentid}')
             # 返回结果
             return {"msg": "success", "code": "200", "data": ''}
 
@@ -323,6 +325,7 @@ def datadict_add(mydata: zydictzgsarg):
         jg = my.msqlzsg(sql)
         if jg:
             logger.warning(f'创建datadict数据字典成功{dictid}')
+            loadzydict()  # 更新datadict数据到内存
             # 返回结果
             return {"msg": "success", "code": "200", "data": ''}
 
@@ -370,7 +373,7 @@ def datadict_update(mydata: zydictzgsarg):
         sql = my.sqlg(data2, 'zydict', filterdata)
         jg = my.msqlzsg(sql)
         if jg:
-            # 禁止修改向量数据库中的表、字段、索引、bm25，只有删除重建
+            loadzydict()  # 更新datadict数据到内存
             # 返回结果
             return {"msg": "success", "code": "200", "data": ''}
         logger.warning(f'修改datadict数据字典失败{dictid}')
@@ -403,6 +406,7 @@ def datadict_del(mydata: zydictzgsarg):
         jg = my.msqlzsg(sql)
         if jg:
             logger.warning(f'删除向量数据库表、mysql数据库成功{dictid}')
+            loadzydict()  # 更新datadict数据到内存
             # 返回结果
             return {"msg": "success", "code": "200", "data": ''}
 
@@ -445,9 +449,10 @@ async def mcp_tools_get(mydata: mcppublicarg):
         tools_data = await mcp_client(mcp_data,  'list_tool')
         if tools_data:
             logger.warning(f'mcp工具列表获取成功')
+            mcp_server_name = list(mcp_data.get('mcpServers', {}).keys())[0]
             # 改写工具中的name，加上/mcp server name
             for tool in tools_data:
-                tool['function']['name'] = f"{tool['function']['name']}/{mcp_data.get('name', '')}"
+                tool['function']['name'] = f"{tool['function']['name']}/{mcp_server_name}"
             return {"msg": "success", "code": "200", "data": tools_data}
         else:
             return {"msg": "mcp error", "code": "150", "data": ''}

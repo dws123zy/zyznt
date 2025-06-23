@@ -65,6 +65,19 @@
                 }
             },
 			{
+                "path": "agent-config",
+                "component": "agent/agent/config",
+                "name": "AgentConfig",
+                "meta": {
+                    "title": "智能体配置",
+                    "icon": "el-icon-User",
+                    "hidden": true,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+			{
                 "path": "datadict",
                 "component": "agent/datadict/index",
                 "name": "datadict",

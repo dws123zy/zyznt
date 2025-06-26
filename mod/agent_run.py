@@ -123,7 +123,8 @@ async def agent_work(q_data):
         if session_type in ['new' , 'old']:
             logger.warning(f'{session_type}此为新对话或mysql中的老对话，生成智能体初始化数据={session_id}')
             '''使用agentid拿到智能体配置数据'''
-            agent = get_agent(q_data.get('agentid', '')).get('data', {})
+            agent_data = get_agent(q_data.get('agentid', {}))
+            agent = agent_data.get('data', {})
             if agent:
                 ragtext = ''
                 q_text = str(q_data.get('msg', [])[-1].get('content', ''))  # 拿到本次的问题
@@ -186,7 +187,7 @@ async def agent_work(q_data):
                         if m.get('msg'):
                             msg.extend(m.get('msg', []))
                 # 组合要存入redis的数据
-                r_session_data = {"appid": agent.get('appid', ''), "agentid": q_data.get('agentid', ''),
+                r_session_data = {"appid": agent_data.get('appid', ''), "agentid": q_data.get('agentid', ''),
                                   "session": session_id, "name": agent.get('name', ''), "user": q_data.get('user', ''),
                                   "start_time":  nowtime, "last_time": nowtime, "tokens": 0, "type": "agent",
                                   "data": data_msg, "agent_data": r_agen_data, "fileid": q_data.get('fileid', []),

@@ -16,6 +16,8 @@ from api import logon
 from api import rag
 from api import agent
 from api import agentapi
+from api import admin
+
 
 '''定义日志程序'''
 
@@ -121,6 +123,7 @@ app.include_router(logon.router)  # 引入登录、登出子路由
 app.include_router(rag.router)  # 引入rag知识库相关子路由
 app.include_router(agent.router)  # 引入agent智能体相关子路由
 app.include_router(agentapi.router)  # 引入agent智能体交互运行相关子路由
+app.include_router(admin.router)  # 引入admin管理功能相关子路由
 
 
 

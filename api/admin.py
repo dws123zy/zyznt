@@ -95,7 +95,7 @@ def get_7day(data2):
         day7_data = {'datas':[], 'chats': [], 'users': []}
         for d in datac:
             # 处理当天组合
-            if d.get('date', '') in [today]:
+            if today in [str(d.get('date'))]:
                 today_data['chat'] = d.get('chat', 0)
                 today_data['user'] = d.get('user', 0)
             # 计算7天对话数据总和

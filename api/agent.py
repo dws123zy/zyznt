@@ -143,7 +143,7 @@ def agent_add(mydata: agentzgsarg):
             logger.warning(f'存入数据库成功{agentid}')
             loadagent()  # 更新agent数据到内存
             # 返回结果
-            return {"msg": "success", "code": "200", "data": ''}
+            return {"msg": "success", "code": "200", "data": {"agentid": agentid}}
 
         # 返回结果
         logger.warning(f'创建知识库失败{agentid}')
@@ -213,6 +213,8 @@ def agent_del(mydata: agentzgsarg):
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         # 获取ragid
         agentid = data_dict.get('data', {}).get('agentid', '')
+        if not agentid:
+            return {"msg": "agentid不正确", "code": "151", "data": ""}
 
         # 组合检索项
         filterdata = {'agentid': agentid}
@@ -397,6 +399,8 @@ def datadict_del(mydata: zydictzgsarg):
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         # 获取ragid
         dictid = data_dict.get('data', {}).get('dictid', '')
+        if not dictid:
+            return {"msg": "dictid不正确", "code": "151", "data": ""}
 
         # 组合检索项
         filterdata = {'dictid': dictid}

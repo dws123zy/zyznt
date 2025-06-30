@@ -1,12 +1,12 @@
 # _*_coding:utf-8 _*_
-import json
-import time
+# import json
+# import time
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 import logging
 from pydantic import BaseModel, Field
 import traceback
-import asyncio
+# import asyncio
 
 # 本地模块
 from data.data import apikeyac, get_agent
@@ -53,7 +53,7 @@ async def agent_stream_post(request: Request, mydata: agentpublicarg):
         logger.warning(f'收到的请求数据={data_dict}')
         # 验证token、user
         appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
-        if not apikeyac(data_dict.get('apikey', ''), appid):
+        if not apikeyac(data_dict.get('apikey', ''), appid, data_dict.get('user', '')):
             logger.warning(f'apikey验证失败')
             return {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
 
@@ -92,7 +92,7 @@ async def agent_event(request: Request, agentid: str='', apikey: str='', user: s
         logger.warning(f'收到的请求数据={data_dict}')
         # 验证token、user
         appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
-        if not apikeyac(data_dict.get('apikey', ''), appid):
+        if not apikeyac(data_dict.get('apikey', ''), appid, user):
             logger.warning(f'apikey验证失败')
             rdata = {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
             return StreamingResponse(
@@ -124,7 +124,7 @@ async def agent_flow_post(request: Request, mydata: agentpublicarg):
         logger.warning(f'收到的请求数据={data_dict}')
         # 验证token、user
         appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
-        if not apikeyac(data_dict.get('apikey', ''), appid):
+        if not apikeyac(data_dict.get('apikey', ''), appid, data_dict.get('user', '')):
             logger.warning(f'apikey验证失败')
             return {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
 

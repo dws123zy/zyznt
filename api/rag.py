@@ -306,6 +306,8 @@ def rag_del(mydata: ragzgsarg):
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         # 获取ragid
         ragid = data_dict.get('data', {}).get('ragid', '')
+        if not ragid:
+            return {"msg": "ragid不正确", "code": "151", "data": ""}
 
         # 组合检索项
         filterdata = {'ragid': ragid}
@@ -546,6 +548,8 @@ def file_del(mydata: filezgsarg):
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         # 获取数据id
         fileid = data_dict.get('data', {}).get('fileid', '')
+        if not fileid:
+            return {"msg": "fileid不正确", "code": "151", "data": ""}
 
         # 组合检索项
         filterdata = {'fileid': fileid}
@@ -749,6 +753,8 @@ def part_del(mydata: partzgsarg):
         data2 = data_dict.get('data', {})
         # 判断是否为问答
         filterdata = data2.get('data', {})
+        if not filterdata:
+            return {"msg": "检索条件错误", "code": "151", "data": ""}
         # 调取转向量函数，转换并入库
         jg = mv.del_data(data2.get('ragdata', {}).get('ragid', ''), ids=data2.get('id', []), filterdata=filterdata)
         if jg:

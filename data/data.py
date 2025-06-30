@@ -273,7 +273,7 @@ def tokenac(token, user):
 
 '''验证apikey'''
 
-def apikeyac(apikey, appid):
+def apikeyac(apikey, appid, user=''):
     try:
         logger.warning(f'apikey={apikey}, appid={appid}')
         if appid in appids:
@@ -286,6 +286,10 @@ def apikeyac(apikey, appid):
                     if data.get('expire', 0) in ['000'] or int(time.time()) < int(data.get('expire', 0)):
                         print('apikey有效')
                         return True
+            elif tokenac(apikey, user):  # apikey验证不通过时，验证帐号和token
+                print('apikey有效')
+                return True
+        # 验证都失败，返回False
         return False
     except Exception as e:
         logger.error({"apikeyac错误:": e})

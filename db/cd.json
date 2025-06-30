@@ -279,32 +279,6 @@
                 }
             },
             {
-                "path": "role",
-                "component": "system/role/index",
-                "name": "Role",
-                "meta": {
-                    "title": "角色管理",
-                    "icon": "role",
-                    "hidden": false,
-                    "keepAlive": true,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            },
-            {
-                "path": "menu",
-                "component": "system/menu/index",
-                "name": "SysMenu",
-                "meta": {
-                    "title": "菜单管理",
-                    "icon": "menu",
-                    "hidden": false,
-                    "keepAlive": true,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            },
-            {
                 "path": "dept",
                 "component": "system/dept/index",
                 "name": "Dept",
@@ -318,24 +292,11 @@
                 }
             },
             {
-                "path": "dict",
-                "component": "system/dict/index",
-                "name": "Dict",
-                "meta": {
-                    "title": "字典管理",
-                    "icon": "dict",
-                    "hidden": false,
-                    "keepAlive": true,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            },
-            {
                 "path": "dict-item",
                 "component": "system/dict/dict-item",
                 "name": "DictItem",
                 "meta": {
-                    "title": "字典数据",
+                    "title": "数据字典",
                     "icon": "",
                     "hidden": true,
                     "keepAlive": true,
@@ -355,31 +316,6 @@
                     "alwaysShow": false,
                     "params": ""
                 }
-            },
-            {
-                "path": "config",
-                "component": "system/config/index",
-                "name": "Config",
-                "meta": {
-                    "title": "系统配置",
-                    "icon": "setting",
-                    "hidden": false,
-                    "keepAlive": true,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            },
-            {
-                "path": "notice",
-                "component": "system/notice/index",
-                "name": "Notice",
-                "meta": {
-                    "title": "通知公告",
-                    "icon": "",
-                    "hidden": false,
-                    "alwaysShow": false,
-                    "params": ""
-                }
             }
         ]
     },
@@ -396,29 +332,6 @@
             "params": ""
         },
         "children": [
-            {
-                "path": "internal-doc",
-                "component": "demo/internal-doc",
-                "name": "InternalDoc",
-                "meta": {
-                    "title": "document",
-                    "icon": "document",
-                    "hidden": false,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            },
-            {
-                "path": "http://zyznt.zy-yun.cn:8000/docs",
-                "name": "http://zyznt.zy-yun.cn:8000/docs",
-                "meta": {
-                    "title": "项目文档(外链)",
-                    "icon": "document",
-                    "hidden": false,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            },
             {
                 "path": "http://zyznt.zy-yun.cn:8000/docs",
                 "name": "http://zyznt.zy-yun.cn:8000/docs",

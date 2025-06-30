@@ -78,12 +78,12 @@
                 }
             },
 			{
-                "path": "datadict",
-                "component": "agent/datadict/index",
-                "name": "datadict",
+                "path": "agent-record",
+                "component": "agent/agent/record",
+                "name": "AgentRecord",
                 "meta": {
-                    "title": "数据字典",
-                    "icon": "role",
+                    "title": "对话记录",
+                    "icon": "el-icon-User",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,

@@ -8,6 +8,7 @@ aa = {
     "data":{"id": "457832990638360632","text": "测试呼叫中心知识,操作手册","state": "t","q_text": "","keyword": "","metadata":{"filename": "逻辑试题 -带答案.txt"}}
 }}
 
+# 2
 
 agent = [
   {'field': 'name', 'text': '智能体名称', 'default': '', 'placeholder': '给您的智能体取名', 'type': 'input', 'required': 't', 'update': 't'},

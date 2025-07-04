@@ -261,6 +261,14 @@ def rag_update(mydata: ragzgsarg):
         ragdata = data.get('data', {})
         # 生成ragid
         ragid  = data.get('ragid', '')
+        if not ragid:
+            ragid = ragdata.get('ragid', '')
+            if not ragid:
+                logger.warning(f'ragid为空了')
+                return {"msg": "ragid不能为空", "code": "151", "data": ""}
+        # 字段id不能修改
+        if 'id' in ragdata:
+            del ragdata['id']
         # 获取当前时间
         nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
         ragdata['time'] = nowtime
@@ -506,6 +514,14 @@ def file_update(mydata: filezgsarg):
         data2 = data.get('data', {})  # data中的data
         # 获取文件id
         fileid  = data.get('fileid', '')
+        if not fileid:
+            fileid = data2.get('fileid', '')
+            if not fileid:
+                logger.warning(f'fileid不能为空')
+                return {"msg": "fileid不能为空", "code": "403", "data": ""}
+        # 字段id不能被修改
+        if 'id' in data2:
+            del data2['id']
         # 获取当前时间
         nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
         data2['time'] = nowtime

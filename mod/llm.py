@@ -65,7 +65,7 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
         # 执行LLM请求
         completion = client.chat.completions.create(
             model=mod,
-            temperature=temperature,  # 热度
+            temperature=float(temperature),  # 热度
             messages=msg,  # 消息列表、提示词、上下文
             tools=tools,  # 工具集
         )
@@ -162,7 +162,7 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
         logger.warning(f'开始调用llm,现在的msg={msg}')
         completion = await client.chat.completions.create(
             model=mod,
-            temperature=temperature,  # 热度
+            temperature=float(temperature),  # 热度
             messages=msg,  # 消息列表、提示词、上下文
             tools=tools,  # 工具集
             stream=stream  # 流式输出
@@ -239,7 +239,7 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
                 logger.warning(f'现在的msg数据={msg}')
                 completion = await client.chat.completions.create(
                     model=mod,
-                    temperature=temperature,  # 热度
+                    temperature=float(temperature),  # 热度
                     messages=msg,  # 消息列表、提示词、上下文
                     tools=tools,  # 工具集
                     stream=stream  # 流式输出

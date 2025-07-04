@@ -170,9 +170,18 @@ def agent_update(mydata: agentzgsarg):
         data2 = data.get('data', {})
         # 获取agentid
         agentid  = data.get('agentid', '')
+        if not agentid:
+            agentid = data2.get('agentid', '')
+            if not agentid:
+                logger.warning(f'agentid不能为空')
+                return {"msg": "agentid不能为空", "code": "151", "data": ""}
         # 获取当前时间
         nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
         data2['time'] = nowtime
+
+        # data2中去除id字段，因为数据库不允许改id
+        if 'id' in data2:
+            del data2['id']
 
         # 把部分字段值的字典转字符
         try:

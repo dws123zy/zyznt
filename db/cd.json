@@ -199,7 +199,7 @@
         },
         "children": [
             {
-                "path": "rag",
+                "path": "mms",
                 "component": "mms/imagetext/index",
                 "name": "mms",
                 "meta": {
@@ -298,7 +298,7 @@
                 "meta": {
                     "title": "数据字典",
                     "icon": "",
-                    "hidden": true,
+                    "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
                     "params": ""
@@ -313,32 +313,6 @@
                     "icon": "document",
                     "hidden": false,
                     "keepAlive": true,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            }
-        ]
-    },
-    {
-        "path": "/doc",
-        "component": "Layout",
-        "redirect": "http://zyznt.zy-yun.cn:8000/docs",
-        "name": "/doc",
-        "meta": {
-            "title": "平台api文档",
-            "icon": "document",
-            "hidden": false,
-            "alwaysShow": false,
-            "params": ""
-        },
-        "children": [
-            {
-                "path": "http://zyznt.zy-yun.cn:8000/docs",
-                "name": "http://zyznt.zy-yun.cn:8000/docs",
-                "meta": {
-                    "title": "后端文档",
-                    "icon": "document",
-                    "hidden": false,
                     "alwaysShow": false,
                     "params": ""
                 }

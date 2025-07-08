@@ -7,6 +7,7 @@ import logging
 from pydantic import BaseModel, Field
 import traceback
 # import asyncio
+from typing import Any
 
 # 本地模块
 from data.data import apikeyac, get_agent
@@ -115,36 +116,6 @@ async def agent_event(request: Request, agentid: str='', apikey: str='', user: s
         )
 
 
-'''agent flow智能体流交互接口'''
-
-@router.post("/agent/flow", tags=["agent flow智能体交互"])
-async def agent_flow_post(request: Request, mydata: agentpublicarg):
-    try:
-        data_dict = mydata.model_dump()
-        logger.warning(f'收到的请求数据={data_dict}')
-        # 验证token、user
-        appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
-        if not apikeyac(data_dict.get('apikey', ''), appid, data_dict.get('user', '')):
-            logger.warning(f'apikey验证失败')
-            return {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
-
-        # 判断是否流式返回
-        if data_dict.get('stream', False):
-            logger.warning(f'流式返回，暂不支持，开发中')
-            return StreamingResponse(
-                agent_flow_start(data_dict),  # 传递 request 参数
-                media_type="text/event-stream"
-            )
-        else:
-            logger.warning(f'非流式返回')
-            rdata = agent_flow_start(data_dict)
-            return {"msg": "success", "code": "200", "data": rdata}
-    except Exception as e:
-        logger.error(f"agent交互接口错误: {e}")
-        logger.error(traceback.format_exc())
-        return {"msg": "error", "code": "501", "data": ""}
-
-
 
 '''******agent智能体对话记录管理******'''
 
@@ -215,6 +186,51 @@ def agent_record_get(mydata: cxzharg):
 
 
 
+'''******agent智能体工作流api******'''
+
+
+'''统一总入参格式类定义'''
+
+class flowdataarg(BaseModel):  # 查询时data中的标准参数
+    user: str = Field('visitor', description="用户名,默认游客visitor")
+    agentid: str = Field(frozen=True, description="对话的智能体id")
+    apikey: str = Field(frozen=True, description="安全验证")
+    session: str = Field('', description="当前对话id")
+    msg: list = Field(frozen=True, description="对话列表，示例[{'role': 'user','content': '你好'}]")
+    # stream: bool = Field(False, description="流式交互")
+    # data: dict = Field({}, description="自定义数据")
+    fileid: list = Field([], description="文件id列表")
+    custom_data:  Any = Field({}, description="自定义数据")
+
+
+'''agent flow智能体流交互接口'''
+
+@router.post("/agent/flow", tags=["agent flow智能体交互"])
+async def agent_flow_post(request: Request, mydata: flowdataarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        appid = get_agent(data_dict.get('agentid', {})).get('appid', '')
+        if not apikeyac(data_dict.get('apikey', ''), appid, data_dict.get('user', '')):
+            logger.warning(f'apikey验证失败')
+            return {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
+
+        # 判断是否流式返回
+        if data_dict.get('stream', False):
+            logger.warning(f'流式返回，暂不支持，开发中')
+            return StreamingResponse(
+                agent_flow_start(data_dict),
+                media_type="text/event-stream"
+            )
+        else:
+            logger.warning(f'非流式返回')
+            rdata = await agent_flow_start(data_dict)
+            return {"msg": "success", "code": "200", "data": rdata}
+    except Exception as e:
+        logger.error(f"agent交互接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
 
 
 

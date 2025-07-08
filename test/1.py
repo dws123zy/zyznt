@@ -1285,8 +1285,8 @@ keys_list = list(my_dict.keys())[0]  # 转换为列表
 
 print(keys_list)
 
-
-
+# mcp_mod
+mcpagent = {'flow_data': {'a01': {'type': 'mod', 'module': 'start_mod', 'module_name': '开始', 'description': '开始，初始化系统变量和自定义变量，创建会话工作id，初始化空间', 'name': '开始', 'node_id': 'a01', 'note': '', 'status': '', 'nub': '0', 'next': 'a02', 'upper': '', 'input': {'system': {'user_input': '', 'data': {}, 'start_time': '', 'end_time': '', 'user': '', 'session': ''}, 'custom': {'a': '3'}}, 'output': ''}, 'a02': {'type': 'mod', 'module': 'llm_mod', 'module_name': 'LLM大模型', 'description': 'LLM大模型调用并执行任务', 'name': 'LLM大模型', 'node_id': 'a02', 'note': '输入提示词让llm按你的要求工作', 'status': '', 'nub': '0', 'next': 'a04', 'upper': '', 'input': {'user_input': 'quote/system/user_input', 'llm': 'qwen-plus', 'prompt': '你是智能助手，帮忙用户实现他的需求', 'tools': []}, 'output': {'content': ''}}, 'a03': {'type': 'mod', 'module': 'end_mod', 'module_name': '结束', 'description': '结束，结束会话，保存会话记录，清空内存运行数据', 'name': '结束', 'node_id': 'a03', 'note': '', 'status': '', 'nub': '0', 'next': '', 'upper': '', 'input': '', 'output': {'system': {'user_input': '', 'data': {}, 'start_time': '', 'end_time': '', 'user': '', 'session': ''}}},'a05': {'type': 'mod', 'module': 'mcp_mod', 'module_name': 'mcp工具模块', 'description': '调用mcp工具', 'name': 'mcp模块', 'node_id': 'a05', 'note': '输入参数调用mcp服务', 'status': '', 'nub': '0', 'next': 'a03', 'upper': '', 'input': {'user_input': 'quote/system/user_input'}, 'output': {'content': ''}, 'tools': {'type': 'function', 'function': {'name': 'get_current_time/zytime', 'description': '用于获取当前时间和日期', 'parameters': {'properties': {}, 'type': 'object'}}}}}}
 
 
 

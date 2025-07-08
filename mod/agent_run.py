@@ -10,6 +10,7 @@ import time
 import copy
 from threading import Timer
 import base64
+from datetime import datetime
 
 from requests import session
 
@@ -446,7 +447,7 @@ async def agent_stream(request: Request, data):
 flow_mod_data = get_zydict('flowmod', 'flowmod')
 
 
-'''动态加载文件读取模块'''
+'''动态加载工作流组件模块'''
 
 modlist = {}
 
@@ -467,61 +468,132 @@ logger.warning(f'模块导入成功={modlist}')
 
 '''flow 智能体流运行开始'''
 
-def agent_flow_start(data):
+async def agent_flow_start(data):
+    alldata = {}  # 全局数据集合
+    rdata = {'status': '', 'node_id': '', 'name': '', 'data': '', 'custom_data':data.get('custom_data')}  # 要返回的数据
     try:
-        alldata = {}  # 全局数据集合
-        rdata = {}  # 要返回的数据
         # 获取智能体配置数据
         agent = get_agent(data.get('agentid')).get('data', {})
         # 判断第一次交互还是多轮
         if data.get('session'):
-            print('多轮对话，从redis拿历史对话数据进行对话，找到执行的节点id,接着执行')
+            logger.warning('多轮对话，从redis拿历史对话数据进行对话，找到执行的节点id,接着执行')
         else:
-            print('第一次对话，先找开始节点，拿到配置数据')
-            next = 'start_mod'  # 要执行的节点id
+            logger.warning('第一次对话，先找开始节点，拿到配置数据')
+            next_node_id = 'start_mod'  # 要执行的节点id
             agent_data = agent.get('flow_data', {})
             # 获取开始节点id
             for k in agent_data:
                 if agent_data.get(k).get('module') in ['start_mod']:
-                    next = k
+                    next_node_id = k
                     break
 
             # 循环执行所有节点，只有当next值为空时才退出循环
-            while next:
-                flow_data = agent_data.get(next, {})  # 节点数据
+            while next_node_id:
+                flow_data = agent_data.get(next_node_id, {})  # 节点数据
                 mod_name = flow_data.get('module')  # 节点模块名
                 if  flow_data:
                     # 执行节点
                     if mod_name in ['start_mod']:  # 开始节点，走的流程不一样
-                        start_data = modlist[mod_name](data, flow_data)
+                        start_data = await modlist[mod_name](data, flow_data)
                         if start_data.get('code') in ['200', 200]:
                             # 初始化数据到全局数据集合alldata中
                             alldata = start_data.get('data', {})
-                            next = flow_data.get('next', '')  # 获取下一个节点id
-                            continue
+                            next_node_id = flow_data.get('next', '')  # 获取下一个节点id
+                            # continue
                         else:  # 节点执行失败
-                            next = ''  # 不再执行节点
-                            return start_data
+                            next_node_id = ''  # 不再执行节点
+                            err_text = f"开始节点执行失败,{start_data.get('data')}"
+                            alldata[next_node_id] = err_text
+                            # 更新rdata数据并返回
+                            rdata['status'] = 'error'
+                            rdata['node_id'] = flow_data.get('node_id', '')
+                            rdata['name'] = flow_data.get('name', '')
+                            rdata['data'] = err_text
+                            return rdata
+                    elif mod_name in ['end_mod']:  # 结束节点，走的流程不一样
+                        # 记录结束时间
+                        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        alldata['system']['end_time'] = now
+                        alldata[next_node_id] = 'end'
+                        next_node_id = ''  # 不再执行节点
                     else:  # 非开始节点执行
                         # 组合本次节点的入参数据
-                        indata = modlist['param_data'](alldata, flow_data)
+                        indata = await modlist['param_data'](alldata, flow_data)
+                        logger.warning(f'组合本次节点的入参数据indata={indata}')
+                        if indata.get('code') in ['502', '501']:
+                            err_text = f"数据组合param_data执行失败,{indata.get('data')}"
+                            alldata['param_data'] = err_text
+                            # 更新rdata数据并返回
+                            rdata['status'] = 'error'
+                            rdata['node_id'] = flow_data.get('node_id', '')
+                            rdata['name'] = flow_data.get('name', '')
+                            rdata['data'] = err_text
+                            return rdata
                         # 执行节点
-                        datac = modlist[mod_name](indata, flow_data)
+                        datac = await modlist[mod_name](indata, flow_data)
                         if datac.get('code') in ['200', 200]:
-                            print(f'节点执行成功，节点id={next},节点数据={datac}')
-                            alldata[next] = datac.get('data', {})
-                            next = flow_data.get('next', '')
+                            logger.warning(f'节点执行成功，节点id={next_node_id},节点执行结果={datac}')
+                            alldata[next_node_id] = datac.get('data', {})
+                            alldata[next_node_id]['status'] = 'success'
+                            alldata[next_node_id]['node_id'] = next_node_id
+                            alldata[next_node_id]['name'] = flow_data.get('name', '')
+                            # 更新rdata数据并返回
+                            rdata['status'] = 'success'
+                            rdata['node_id'] = next_node_id
+                            rdata['name'] = flow_data.get('name', '')
+                            rdata['data'] = datac.get('data', {})
+                            # 获取下一个节点id
+                            next_node_id = flow_data.get('next', '')
                         else:
-                            print(f'节点执行失败，节点id={next},节点数据={datac}')
-                            return datac
+                            logger.warning(f'节点执行失败，现在终止执行，节点id={next_node_id},节点数据={datac}')
+                            err_text = f"节点执行失败,{datac.get('data')}"
+                            alldata[next_node_id] = {'status': 'error', 'node_id': flow_data.get('node_id', ''),
+                                                     'name': flow_data.get('name', ''), 'data': err_text}
+                            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            alldata['system']['end_time'] = now
+                            # 更新rdata数据并返回
+                            rdata['status'] = 'error'
+                            rdata['node_id'] = flow_data.get('node_id', '')
+                            rdata['name'] = flow_data.get('name', '')
+                            rdata['data'] = err_text
+                            return rdata
+                else:
+                    logger.warning(f'找不到节点id={next_node_id}')
+                    err_text =f'找不到节点id={next_node_id}'
+                    alldata[next_node_id] = {'status': 'error', 'node_id': flow_data.get('node_id', ''),
+                                             'name': flow_data.get('name', ''), 'data': err_text}
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    alldata['system']['end_time'] = now
+                    # 更新rdata数据并返回
+                    rdata['status'] = 'error'
+                    rdata['node_id'] = flow_data.get('node_id', '')
+                    rdata['name'] = flow_data.get('name', '')
+                    rdata['data'] = err_text
+                    return rdata
+
         # 所有节点执行完毕，处理对话存储和返回结果
-        pass
+        agentdata = get_agent(data.get('agentid'))
+        appid = agentdata.get('appid', '')
+        session_id = alldata.get('system', {}).get('session', '')
+        user = data.get('user', '')
+        start_time = alldata.get('system', {}).get('start_time', '')
+        end_time = alldata.get('system', {}).get('end_time', '')
+        alldata_b64 = my.list_to_safe_base64(alldata)
+        r_data = {'appid': appid, 'session': session_id, 'user': user, 'agentid': data.get('agentid', ''),
+                  'type': 'flow', 'start_time': start_time, 'last_time': end_time, 'name': agentdata.get('name', ''),
+                  'data': alldata_b64}
+        # 存到mysql中
+        sqlcmd = my.sql3sz(r_data, 'agent_record')
+        logger.warning(f"智能体工作流记录入库sqlcmd={sqlcmd}")
+        mjg = my.msqlzsg(sqlcmd)
+        logger.warning(f"智能体工作流记录入库结果mjg={mjg}")
         # 返回结果数据
         return rdata
     except Exception as e:
         logger.error(f"智能体流运行开始错误: {e}")
         logger.error(traceback.format_exc())
-        return ''
+        rdata['status'] = 'error'
+        return rdata
 
 
 

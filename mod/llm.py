@@ -95,44 +95,43 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
                 else:  # 正常文本回复，非工具调用，流式回复
                     if delta.get('reasoning_content'):  # 输出推理内容+正常文本
                         logger.warning(f'时间{time.time()}，推理内容={delta['reasoning_content']}')
-                        return f"reasoning_content:{delta['reasoning_content']}  content:{delta['content']}"
+                        reasoning_text = re.sub(r'\n{2,}', '\n', delta['reasoning_content'])
+                        return f">{reasoning_text} \n\n{delta['content']}"
                     elif delta.get('content'):
                         # print('正常文本回复，非推理')
                         logger.warning(f'时间{time.time()}, 输出内容={delta['content']}')
-                        return f"content:{delta['content']}"
+                        return f"{delta['content']}"
             # 执行工具调用
             if tool_data_chunk:
                 # 组合获取完整工具调用数据
                 tool_data =tool_data_chunk
                 logger.warning(f'要调用的工具数据={tool_data}')
-                if not tool_data:
+                tool_result = ''
+                if tool_data:
+                    # 调用工具
+                    tool_status = f'开始调用工具={tool_data[0].get('function', {}).get('name')}'
+                    logger.warning(tool_status)
+                    tool_result = asyncio.run(tool_call_result(tool_data))
+                else:
                     logger.warning('调用工具失败,无工具调用数据')
-                    return '调用工具失败'
-                # 调用工具
-                # 同步函数中调用异步函数
-                tool_result =  asyncio.run(tool_call_result(tool_data))
-                # 组合到msg中返回给大模型
-                delta = tool_data_chunk[0]['choices'][0]['message']
-                delta['tool_calls'] = tool_data
-                msg.append(delta)  # 增加llm工具调用数据
+                # 组合工具调用信息到msg中返回给大模型
+                llm_tool_call = {"role": "assistant", "tool_calls": tool_data}
+                msg.append(llm_tool_call)  # 增加llm工具调用数据
                 # 增加工具调用结果
                 if tool_result:
                     msg = msg+tool_result
-                else:
-                    return '调用工具失败'
+                # 执行LLM请求
+                logger.warning(f'现在的msg数据={msg}')
                 # 执行LLM请求
                 completion = client.chat.completions.create(
                     model=mod,
-                    temperature=temperature,  # 热度
+                    temperature=float(temperature),  # 热度
                     messages=msg,  # 消息列表、提示词、上下文
                     tools=tools,  # 工具集
                 )
+
             else:
                 tool_while = False
-                return 'llm调用失败'
-
-        # lent = time.time()
-        # print('获取流完成，所用时间=', lent - lst)
 
         return completion
     except Exception as e:
@@ -140,7 +139,6 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
         logger.error(e)
         logger.error(traceback.format_exc())
         return ''
-
 
 
 

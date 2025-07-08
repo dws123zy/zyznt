@@ -19,6 +19,7 @@ from db import my  #, mv
 from data.data import tokenac, get_zydict, loadzydict, loadagent  # get_filter, get_rag
 # from mod.file import fileanalysis, partjx, zyembd
 from mod.zymcp import mcp_client
+from mod.llm import openai_llm
 
 
 '''此模块用于agent智能体、智能流数据配置与管理'''
@@ -476,6 +477,50 @@ async def mcp_tools_get(mydata: mcppublicarg):
 
 
 
+'''LLM 服务管理'''
+
+'''LLM统一总入参格式类定义'''
+
+
+class llmpublicarg(BaseModel):  # 公共参数，所有接口必传
+    llm: str = Field(frozen=True, description="llm模型id")
+    msg: Any = Field(frozen=True, description="与大模型交互的msg数据，示例[{'role': 'user','content': '你好'}]")
+
+
+class llmzharg(publicarg):  # 通用查询类组合，公共+data
+    data: llmpublicarg
+
+
+'''llm交互接口'''
+
+@router.post("/llm/msg", tags=["llm交互接口"])
+def llm_msg_get(mydata: llmzharg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data = data_dict.get('data', {})
+        msg = data.get('msg', [])  # 获取msg数据
+        # 拿到llm模型数据
+        llmdata = get_zydict('llm', data.get('llm', ''))
+        if llmdata and msg:
+            logger.warning(f'开始调用llm模型')
+            sdk = llmdata.get('sdk', 'openai')
+            if sdk == 'openai':
+                llm_text = openai_llm(msg, llmdata.get('apikey', ''), llmdata.get('url', ''), llmdata.get('module', ''))
+            else:
+                logger.warning(f'不支持的llm模型={sdk}')
+                return {"msg": "llm type error", "code": "151", "data": ''}
+            return {"msg": "success", "code": "200", "data": llm_text}
+        else:
+            return {"msg": "llm error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"llm交互接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
 
 
 

@@ -76,7 +76,7 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
         while tool_while and nub < 10:
             nub  = nub + 1
             if not completion:
-                return 'llm调用失败'
+                return ''
             # 流式获取
             msg_type = 'text'  # 默认为text，还有个是tool工具调用
             tool_data_chunk = []
@@ -133,7 +133,7 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
             else:
                 tool_while = False
 
-        return completion
+        return ''
     except Exception as e:
         logger.error({"openai_llm stream错误:": e})
         logger.error(e)

@@ -8,6 +8,8 @@ import importlib
 import os
 import httpx
 from concurrent.futures import ThreadPoolExecutor  # 线程池
+import dashscope
+from http import HTTPStatus
 
 # 本地模块
 from mod import textsplit
@@ -69,8 +71,8 @@ logger.warning(f'模块导入成功={modlist}')
 def zyembd(text, embddata):
     try:
         logger.warning('开始调用embd模型')
-        if embddata.get('embdname') in ['zyembd'] and embddata.get('mod_name') in ['bge-large-zh-v1.5']:
-            logger.warning(f'开始调用本地embd模型={embddata.get("mod_name")}')
+        if embddata.get('sdk') in ['zyembd'] and embddata.get('module') in ['bge-large-zh-v1.5']:
+            logger.warning(f'开始调用本地embd模型={embddata.get("module")}')
             url = embddata.get('url')
             payload = {'apikey': embddata.get('apikey'), 'text': [text]}
             # 设置请求头（根据接口需求调整)
@@ -89,11 +91,31 @@ def zyembd(text, embddata):
                     print(f"请求失败，状态码: {response.status_code}")
                     logger.warning(f"错误信息:{response.json()}")
                     return ''
-        elif embddata.get('embdname') in ['ollama']:
-            logger.warning(f'开始调用ollama中的embd模型={embddata.get("mod_name")}')
+        elif embddata.get('sdk') in ['openai']:
+            logger.warning(f'开始调用openai组合中的embd模型={embddata.get("module")}')
             return ''
+        elif embddata.get('sdk') in ['dashscope', 'qwen-embedding', 'aly']:  # 阿里云qwen-embedding
+            logger.warning(f'开始调用阿里的embd模型={embddata.get("module")}')
+            dashscope.api_key = embddata.get('apikey', '')
+            dashscope.timeout = embddata.get('timeout', 60)
+            dashscope.base_url = embddata.get('url', '')
+
+            resp = dashscope.TextEmbedding.call(
+                model=embddata.get('module', ''),
+                input=text,
+                dimension=int(embddata.get('dim', 1024)),  # 指定向量维度（仅 text-embedding-v3及 text-embedding-v4支持该参数）
+                output_type=embddata.get('output_type', "dense")  # dense&sparse  密集 稀疏
+            )
+
+            if resp.status_code == HTTPStatus.OK:
+                logger.warning(f'调用阿里云qwen-embedding成功')
+                rdata = resp.output.get('embeddings')[0]
+                return rdata.get('embedding')
+            else:
+                logger.warning(f'调用阿里云qwen-embedding失败，错误信息={resp}')
+                return ''
         else:
-            logger.warning(f'不支持的embd模型={embddata.get("embdname")}')
+            logger.warning(f'不支持的embd模型={embddata.get("sdk")}')
             return ''
     except Exception as e:
         logger.error(f"调用embd模型错误: {e}")
@@ -215,29 +237,35 @@ def filejx(filedata, ragdata):
             split_fun = split_data.get('split_fun', 'general')
             if split_fun in ['general']:  # 通用分段
                 logger.warning(f'通用文本分段开始')
-                separator = split_data.get('data', {}).get('separator', '\n\n\n|\n\n|\n|。')
-                maxsize = int(split_data.get('data', {}).get('maxsize', 500))
-                o_size = int(split_data.get('data', {}).get('o_size', 50))
+                separator = split_data.get('separator', '\n\n\n|\n\n|\n|。')
+                maxsize = int(split_data.get('maxsize', 500))
+                o_size = int(split_data.get('o_size', 50))
                 textlist = textsplit.general(datac, separator=separator, maxsize=maxsize, o_size=o_size)
                 # 处理llm泛华问题配置
                 if split_data.get('llm_q'):
                     pass
             elif split_fun in ['separator']:
                 logger.warning(f'指定分隔符文本分段开始')
-                textlist = textsplit.separator(datac, split_data.get('data', {}).get('separator', '\n\n\n|\n\n|\n|。'))
+                textlist = textsplit.separator_split(datac, split_data.get('separator', '\n\n\n|\n\n|\n|。'),
+                                                     split_data.get('maxsize', 5000))
                 # 处理llm泛华问题配置
                 if split_data.get('llm_q'):
                     pass
             elif split_fun in ['llm', 'LLM']:
                 logger.warning(f'LLM文本分段开始')
+                textlist = textsplit.llm_text(datac, split_data.get('text', ''), split_data.get('llm', ''), split_data.get('msg', ''))
                 # 处理llm泛华问题配置
                 if split_data.get('llm_q'):
                     pass
             elif split_fun in ['qa']:
                 logger.warning(f'QA问答文本分段开始')
+                textlist = textsplit.qa_split(datac, split_data.get('maxsize', 5000))
                 # 处理llm泛华问题配置
-                if split_data.get('llm_q'):
+                if split_data.get('llm_q') and textlist:
                     pass
+            else:
+                logger.warning(f'不支持的文本分段方式{split_fun}，配置数据={split_data}')
+                return ''
 
             # 转向量并存入向量数据库
             vdata = []  # 存储向量数据，单次不能超过1000M
@@ -252,57 +280,58 @@ def filejx(filedata, ragdata):
                 embddata = get_zydict('embd', embdid)
                 # 遍历文本列表，向量化文本，组合数据，入库向量数据库
                 for t in textlist:
-                    '''
-                    id vector sparse text fileid  state   metadata  q_text  s_text  keyword    
+                    if t:  # 跳过空文本
+                        '''
+                        id vector sparse text fileid  state   metadata  q_text  s_text  keyword    
+    
+                        id  向量 稀疏      文本  文件名或id  块状态   元数据        问   稀疏文本    关键词、标签    
+                        '''
+                        vd = {'fileid': fileid, 'state': 't', 'metadata': {'filename': filedata.get('name', '')}}
 
-                    id  向量 稀疏      文本  文件名或id  块状态   元数据        问   稀疏文本    关键词、标签    
-                    '''
-                    vd = {'fileid': fileid, 'state': 't', 'metadata': {'filename': filedata.get('name', '')}}
-
-                    if search in ['vector']:  # 向量化检索
-                        logger.warning(f'向量化检索数据处理开始')
-                        # 判断是否为问答或llm泛化问答
-                        if split_fun in ['qa'] or split_data.get('llm_q'):  # 问答时t的数据格式为{q: ,a: }
-                            vd['q_text'] = t.get('q', '')
-                            vd['text'] = t.get('a', '')
-                            vd['vector'] = zyembd(t.get('q', ''), embddata)
-                        else:  # 非问答时，t就是文本内容
-                            vd['text'] = t
-                            vd['vector'] = zyembd(t, embddata)
-                    # elif search in ['sparse']:  # 稀疏向量化检索 当只使用全文检索时，且表中没有向量字段时走这个逻辑
-                    #     logger.warning(f'稀疏向量化检索数据处理开始')
-                    #     # 判断是否为问答或llm泛化问答
-                    #     if split_fun in ['qa'] or split_data.get('llm_q'):  # 问答时t的数据格式为{q: ,a: }
-                    #         vd['q_text'] = t.get('q', '')
-                    #         vd['text'] = t.get('a', '')
-                    #         vd['s_text'] = t.get('q', '')
-                    #     else:  # 非问答时，t就是文本内容
-                    #         vd['text'] = t
-                    #         vd['s_text'] = t
-                    elif search in ['sparse', 'vs']:  # 全文检索  向量+稀疏向量检索
-                        logger.warning(f'向量+稀疏向量检索数据处理开始')
-                        # 判断是否为问答或llm泛化问答
-                        if split_fun in ['qa'] or split_data.get('llm_q'):  # 问答时t的数据格式为{q: ,a: }
-                            vd['q_text'] = t.get('q', '')
-                            vd['text'] = t.get('a', '')
-                            vd['s_text'] = t.get('q', '')
-                            vd['vector'] = zyembd(t.get('q', ''), embddata)
-                        else:  # 非问答时，t就是文本内容
-                            vd['text'] = t
-                            vd['s_text'] = t
-                            vd['vector'] = zyembd(t, embddata)
-                    else:
-                        logger.error(f'检索方式{search}不存在，请检查')
-                        # 跳过此次循环
-                        continue
-                    # 把本条数据加到vdata中
-                    vdata.append(vd)
-                    # 检查vdata是否超过了1000条，如果是，就入库一次，以免占用内存
-                    if len(vdata) > 1000:
-                        logger.warning(f'vdata数据超过1000条，入库中')
-                        jg = vdb_mdb(ragdata,vdata, fileid)  # 把vdata中现有的数据先入库
-                        if jg:
-                            vdata = []  # 清空vdata
+                        if search in ['vector']:  # 向量化检索
+                            logger.warning(f'向量化检索数据处理开始')
+                            # 判断是否为问答或llm泛化问答
+                            if split_fun in ['qa'] or split_data.get('llm_q'):  # 问答时t的数据格式为{q: ,a: }
+                                vd['q_text'] = t.get('q', '')
+                                vd['text'] = t.get('a', '')
+                                vd['vector'] = zyembd(t.get('q', ''), embddata)
+                            else:  # 非问答时，t就是文本内容
+                                vd['text'] = t
+                                vd['vector'] = zyembd(t, embddata)
+                        # elif search in ['sparse']:  # 稀疏向量化检索 当只使用全文检索时，且表中没有向量字段时走这个逻辑
+                        #     logger.warning(f'稀疏向量化检索数据处理开始')
+                        #     # 判断是否为问答或llm泛化问答
+                        #     if split_fun in ['qa'] or split_data.get('llm_q'):  # 问答时t的数据格式为{q: ,a: }
+                        #         vd['q_text'] = t.get('q', '')
+                        #         vd['text'] = t.get('a', '')
+                        #         vd['s_text'] = t.get('q', '')
+                        #     else:  # 非问答时，t就是文本内容
+                        #         vd['text'] = t
+                        #         vd['s_text'] = t
+                        elif search in ['sparse', 'vs']:  # 全文检索  向量+稀疏向量检索
+                            logger.warning(f'向量+稀疏向量检索数据处理开始')
+                            # 判断是否为问答或llm泛化问答
+                            if split_fun in ['qa'] or split_data.get('llm_q'):  # 问答时t的数据格式为{q: ,a: }
+                                vd['q_text'] = t.get('q', '')
+                                vd['text'] = t.get('a', '')
+                                vd['s_text'] = t.get('q', '')
+                                vd['vector'] = zyembd(t.get('q', ''), embddata)
+                            else:  # 非问答时，t就是文本内容
+                                vd['text'] = t
+                                vd['s_text'] = t
+                                vd['vector'] = zyembd(t, embddata)
+                        else:
+                            logger.error(f'检索方式{search}不存在，请检查')
+                            # 跳过此次循环
+                            continue
+                        # 把本条数据加到vdata中
+                        vdata.append(vd)
+                        # 检查vdata是否超过了1000条，如果是，就入库一次，以免占用内存
+                        if len(vdata) > 1000:
+                            logger.warning(f'vdata数据超过1000条，入库中')
+                            jg = vdb_mdb(ragdata,vdata, fileid)  # 把vdata中现有的数据先入库
+                            if jg:
+                                vdata = []  # 清空vdata
 
             # 检查vdata中是否还有数据
             if vdata:
@@ -315,7 +344,7 @@ def filejx(filedata, ragdata):
         # 文件解析全部成功
         logger.warning(f'文件解析全部成功，文件数据={filedata}')
         # 解析成功，现在修改文件状态为ok
-        jg = file_status(fileid, 'ok')
+        jg = file_status(filedata.get('fileid', ''), 'ok')
         # 返回结果
         return 1
 
@@ -324,7 +353,7 @@ def filejx(filedata, ragdata):
         logger.error(e)
         logger.error(traceback.format_exc())
         # 解析失败，修改文件状态为error
-        jg = file_status(fileid, 'error')
+        jg = file_status(filedata.get('fileid', ''), 'error')
         return ''
 
 

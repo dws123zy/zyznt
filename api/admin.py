@@ -5,10 +5,12 @@ from fastapi import APIRouter
 import logging
 from pydantic import BaseModel, Field
 import traceback
+import random
+import string
 
 # 本地模块
 from db import my
-from data.data import tokenac, get_zydict
+from data.data import tokenac, get_zydict, loadusers, get_user, get_app
 
 
 '''此模块用于rag知识库数据配置、查询与管理'''
@@ -116,8 +118,354 @@ def get_7day(data2):
 
 
 
+'''查询通用'''
+
+class cxdataarg(BaseModel):  # 查询时data中的标准参数
+    filter: dict = Field({}, description="查询条件,检索项，以键值对方式传过来")
+    limit: int = Field(200, description="每页显示的数量")
+    page: int = Field(1, description="页码，第几页")
 
 
+class cxzharg(publicarg):  # 通用查询类组合，公共+data
+    data: cxdataarg
+
+
+'''user通用新增、修改、删除'''
+
+class userdataarg3(BaseModel):
+    user: str = Field('', description="user用户帐号,修改删除时必填")
+    data: dict = Field({}, description="增加或修改的数据，增加修改时必填")
+
+class userzgsarg(publicarg):  # 通用增加和修改组合，公共+data
+    data: userdataarg3
+
+
+'''******user用户管理******'''
+
+'''user用户查询接口'''
+
+@router.post("/user/get", tags=["user用户查询"])
+def user_get(mydata: cxzharg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data = data_dict.get('data', {})
+
+        # 写sql
+        filterdata = data.get('filter', {})
+        if not filterdata.get('appid', ''):  # 如果检索项中没有appid，则使用当前user的appid
+            filterdata['appid'] = data_dict.get('appid', '')
+        sql = my.sqlc3(filterdata, 'user', data.get('page'), data.get('limit'), '')
+        datac, nub = my.msqlcxnum(sql)  # 查询数据
+
+        # 获取表单数据form
+        formdata = get_zydict('form', 'user_form')
+
+        return {"msg": "success", "code": "200",
+                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit'),
+                         "form": formdata}}
+    except Exception as e:
+        logger.error(f"user查询接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''user用户新增接口'''
+
+@router.post("/user/add", tags=["user用户新增"])
+def user_add(mydata: userzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 拿到要新增的配置数据
+        data = data_dict.get('data', {})
+        data2 = data.get('data', {})
+        # 如果没有user则报错
+        if not data2.get('user', ''):
+            return {"msg": "user不能为空", "code": "151", "data": ""}
+        # 判断用户是否存在
+        if get_user(data2.get('user', '')):
+            return {"msg": "user已存在", "code": "152", "data": ""}
+        # 判断密码是否为空，如果为空则随机生成一个
+        if not data2.get('password', ''):
+            password = ''.join(random.choice(string.digits) for _ in range(8))
+            data2['password'] = password
+        # 获取当前时间
+        nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        data2['date'] = nowtime  # 添加创建时间
+
+        # 存入mysql数据库
+        sql = my.sqlz(data2, 'user')
+        jg = my.msqlzsg(sql)
+        if jg:
+            logger.warning(f'存入数据库成功{data2.get("userid")}')
+            loadusers()  # 更新user数据到内存
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": ""}
+
+        # 返回结果
+        logger.warning(f'user创建用户失败{data2.get("userid")}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"user新增接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
+
+
+'''user用户修改接口'''
+
+@router.put("/user/update", tags=["user用户修改"])
+def user_update(mydata: userzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 拿到要修改的数据
+        data = data_dict.get('data', {})
+        data2 = data.get('data', {})
+        # 获取agentid
+        user  = data.get('user', '')
+        if not user:
+            user = data2.get('user', '')
+            if not user:
+                logger.warning(f'user不能为空')
+                return {"msg": "user不能为空", "code": "151", "data": ""}
+
+        # data2中去除id字段，因为数据库不允许改id，user为帐号，创建后也不能修改
+        if 'id' in data2:
+            del data2['id']
+        if 'user' in data2:
+            del data2['user']
+
+        # 组合检索项
+        filterdata = {'appid': data2.get('appid', ''), 'user': user}
+
+        # 存入mysql数据库
+        sql = my.sqlg(data2, 'user', filterdata)
+        jg = my.msqlzsg(sql)
+        if jg:
+            loadusers()  # 更新user数据到内存
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": ''}
+        logger.warning(f'修改知识库失败{user}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"user修改接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''user用户删除接口'''
+
+@router.delete("/user/del", tags=["user用户删除"])
+def user_del(mydata: userzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 获取user
+        user = data_dict.get('data', {}).get('user', '')
+        if not user:
+            return {"msg": "user不正确", "code": "151", "data": ""}
+
+        # 组合检索项
+        filterdata = {'user': user}
+
+        # 存入mysql数据库
+        sql = my.sqls('user', filterdata)
+        jg = my.msqlzsg(sql)
+        if jg:
+            loadusers()  # 更新user数据到内存
+            logger.warning(f'删除数据库表、mysql数据库user成功{user}')
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": ''}
+
+        # 返回结果
+        logger.warning(f'删除user失败{user}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"user删除接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
+
+
+'''******公司管理******'''
+
+'''公司app通用新增、修改、删除'''
+
+class companydataarg3(BaseModel):
+    appid: str = Field('', description="公司帐号的appid,修改删除时必填")
+    data: dict = Field({}, description="增加或修改的数据，增加修改时必填")
+
+class companyzgsarg(publicarg):  # 通用增加和修改组合，公共+data
+    data: userdataarg3
+
+
+'''公司查询接口'''
+
+@router.post("/company/get", tags=["公司查询"])
+def company_get(mydata: cxzharg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data = data_dict.get('data', {})
+
+        # 写sql
+        filterdata = data.get('filter', {})
+        sql = my.sqlc3(filterdata, 'company', data.get('page'), data.get('limit'), '')
+        datac, nub = my.msqlcxnum(sql)  # 查询数据
+
+        # 获取表单数据form
+        formdata = get_zydict('form', 'company_form')
+
+        return {"msg": "success", "code": "200",
+                "data": {"data": datac, "nub": nub, "page": data.get('page'), "limit": data.get('limit'),
+                         "form": formdata}}
+    except Exception as e:
+        logger.error(f"公司查询接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''公司新增接口'''
+
+
+@router.post("/company/add", tags=["公司新增"])
+def company_add(mydata: companyzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 拿到要新增的公司数据
+        data = data_dict.get('data', {})
+        company_data = data.get('data', {})
+
+        # 自动生成8位appid（如果未提供）
+        if not company_data.get('appid', ''):
+            company_data['appid'] = ''.join(random.choice(string.digits) for _ in range(8))
+            logger.warning(f'自动生成appid: {company_data["appid"]}')
+
+        # 判断公司是否存在
+        if get_app(company_data.get('appid', '')):
+            return {"msg": "公司已存在", "code": "152", "data": ""}
+
+        # 获取当前时间
+        nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        company_data['date'] = nowtime  # 添加创建时间
+
+        # 存入mysql数据库
+        sql = my.sqlz(company_data, 'company')
+        jg = my.msqlzsg(sql)
+        if jg:
+            logger.warning(f'公司创建成功 appid={company_data.get("appid")}')
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": company_data.get('appid')}
+
+        logger.warning(f'公司创建失败 appid={company_data.get("appid")}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"公司新增接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
+
+
+'''公司修改接口'''
+
+
+@router.put("/company/update", tags=["公司修改"])
+def company_update(mydata: companyzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+
+        data = data_dict.get('data', {})
+        update_data = data.get('data', {})
+        appid = data.get('appid', '') or update_data.get('appid', '')
+
+        if not appid:
+            logger.warning(f'appid不能为空')
+            return {"msg": "appid不能为空", "code": "151", "data": ""}
+
+        # 移除不允许修改的字段
+        update_data.pop('id', None)
+        update_data.pop('appid', None)  # appid不可修改
+
+        # 组合检索条件
+        filterdata = {'appid': appid}
+
+        # 更新数据库
+        sql = my.sqlg(update_data, 'company', filterdata)
+        jg = my.msqlzsg(sql)
+        if jg:
+            logger.warning(f'公司信息更新成功 appid={appid}')
+            return {"msg": "success", "code": "200", "data": appid}
+
+        logger.warning(f'公司信息更新失败 appid={appid}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"公司修改接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''公司删除接口'''
+
+
+@router.delete("/company/del", tags=["公司删除"])
+def company_del(mydata: companyzgsarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+
+        appid = data_dict.get('data', {}).get('appid', '')
+        if not appid:
+            return {"msg": "appid不能为空", "code": "151", "data": ""}
+
+        # 组合检索条件
+        filterdata = {'appid': appid}
+
+        # 执行删除
+        sql = my.sqls('company', filterdata)
+        jg = my.msqlzsg(sql)
+        if jg:
+            logger.warning(f'公司删除成功 appid={appid}')
+            return {"msg": "success", "code": "200", "data": appid}
+
+        logger.warning(f'公司删除失败 appid={appid}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"公司删除接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
 
 
 

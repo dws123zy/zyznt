@@ -218,7 +218,7 @@ def img_verify(imgid, verify):
 
 def logonac(data):
     try:
-        if data.get('user') in users:
+        if data.get('user') in users and users.get(data.get('user'), {}).get('state') in ['t']:
             # 验证密码
             if users[data.get('user')]['password'] == data.get('password'):
                 # 拿到用户的appid
@@ -241,7 +241,7 @@ def logonac(data):
             else:
                 return {'code': '403', 'msg': '密码错误'}
         else:
-            return {'code': '406', 'msg': '用户名错误或已暂停'}
+            return {'code': '406', 'msg': '用户名错误或已停用'}
     except Exception as e:
         logger.error({"logonac错误:": e})
         logger.error(e)
@@ -253,7 +253,7 @@ def logonac(data):
 
 def tokenac(token, user):
     try:
-        if user in users:
+        if user in users and users.get(user, {}).get('state') in ['t']:
             if users[user]['token'] == token:
                 if int(time.time()) < int(users[user]['expire']):
                     return True
@@ -371,10 +371,32 @@ def get_agent(agentid):
         return {}
 
 
+'''根据user获取user用户配置数据'''
+
+def get_user(user):
+    try:
+        if user and user in users:
+            return users.get(user, {})
+        return {}  # 没找到数据，返回空字典
+    except Exception as e:
+        logger.error({"获取userdata错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return {}
 
 
+'''根据appid获取公司配置数据'''
 
-
+def get_app(appid):
+    try:
+        if appid and appid in appids:
+            return appids.get(appid, {})
+        return {}  # 没找到数据，返回空字典
+    except Exception as e:
+        logger.error({"获取userdata错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return {}
 
 
 

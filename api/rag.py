@@ -12,7 +12,7 @@ import traceback
 import random
 import string
 import copy
-from typing import Union
+from typing import Union, Any
 
 # 本地模块
 from db import my, mv
@@ -155,7 +155,7 @@ def rag_get(mydata: cxzharg):
         filterdata = data.get('filter', {})
         if not filterdata.get('appid', ''):  # 如果检索项中没有appid，则使用当前user的appid
             filterdata['appid'] = data_dict.get('appid', '')
-        sql = my.sqlc3(filterdata, 'rag', data.get('page'), data.get('limit'), '')
+        sql = my.sqlc3like(filterdata, 'rag', data.get('page'), data.get('limit'), '')
         datac, nub = my.msqlcxnum(sql)  # 查询数据
 
         # 把部分字段值的json字符串转字典
@@ -223,7 +223,7 @@ def rag_add(mydata: ragzgsarg):
             tb_dict = get_zydict('db', tbdata).get('tbdata', '{}')
             dim = 1024
             if ragdata.get('embedding'):
-                dim = get_zydict('embd', ragdata.get('embedding').split('/')[1]).get('dim', 1024)
+                dim = get_zydict('embd', ragdata.get('embedding', '')).get('dim', 1024)
             if tb_dict:
                 schema, index_param = mv.schema_create(tb_dict, dim)
                 logger.warning(f'创建向量数据库表参数={schema}, \n\n\n{index_param}')
@@ -356,7 +356,7 @@ class filezgsarg(publicarg):  # 通用增加和修改组合，公共+data
 
 '''文件查询接口'''
 
-@router.post("/file/get", tags=["RAG文件查询"])
+@router.post("/file/get", tags=["文件查询"])
 def file_get(mydata: cxzharg):
     try:
         data_dict = mydata.model_dump()
@@ -370,7 +370,7 @@ def file_get(mydata: cxzharg):
         filterdata = data.get('filter', {})
         if not filterdata.get('appid', ''):  # 如果检索项中没有appid，则使用当前user的appid
             filterdata['appid'] = data_dict.get('appid', '')
-        sql = my.sqlc3(filterdata, 'file', data.get('page'), data.get('limit'), '')
+        sql = my.sqlc3like(filterdata, 'file', data.get('page'), data.get('limit'), '')
         datac, nub = my.msqlcxnum(sql)  # 查询数据
 
         # 把部分字段值的json字符串转字典
@@ -402,7 +402,7 @@ def file_get(mydata: cxzharg):
 async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''), agentid:  str=Form(''),
                        appid: str = Form(''), user: str = Form(''), token: str = Form(''), read: bool = Form(False)):
     try:
-        data_dict = {'ragid': ragid, 'agentid': agentid, 'appid': appid}
+        data_dict = {'ragid': ragid, 'agentid': agentid, 'appid': appid, 'user': user, 'read': read}
         logger.warning(f'收到的请求数据={data_dict}, appid={appid}, user={user}, token={token}')
 
         # 验证token、user
@@ -459,14 +459,18 @@ async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''),
                 # 随机选择字符并拼接成字符串
                 characters = string.ascii_letters + string.digits
                 fileid = str(int(time.time()*1000))+''.join(random.choice(characters) for _ in range(3))
-                ragid = data_dict.get('data', {}).get('ragid') if data_dict.get('data', {}).get('ragid') else ''
+                ragid = data_dict.get('ragid') if data_dict.get('ragid') else ''
+                # 获取 rag 的 split 数据
+                rag_data = get_rag(ragid)
+                split_data = str(rag_data.get('split', '')) if rag_data else ''
+                # 判断是否需要读取文件内容
                 text = ''
                 if data_dict.get('read'):  # 要求读取文件内容并存到数据库中
                     text = file_read(f.get('filename', ''), ragid, data_dict.get('appid', ''))
                 filedata = {'name': f.get('filename', ''), 'size': f.get('size', 0), 'time': nowtime, 'text': text,
                             'metadata': str({"format": f.get('format', '')}), 'appid': data_dict.get('appid', ''),
                             'user': data_dict.get('user', ''), 'ragid': ragid, 'fileid': fileid,
-                            'type': data_dict.get('type', 'file'), 'split': str(data_dict.get("split", ''))}
+                            'type': data_dict.get('type', 'file'), 'split': split_data}
                 # 组合sql语句
                 sql = my.sql3sz(filedata, 'file')
                 jg = my.msqlzsg(sql)  # 执行sql语句，增加文件到数据库
@@ -500,7 +504,7 @@ def file_getfile(appid: str, getid: str, filename: str):
 
 '''文件修改接口'''
 
-@router.put("/file/update", tags=["RAG文件修改"])
+@router.put("/file/update", tags=["文件修改"])
 def file_update(mydata: filezgsarg):
     try:
         data_dict = mydata.model_dump()
@@ -553,7 +557,7 @@ def file_update(mydata: filezgsarg):
 
 '''文件删除接口'''
 
-@router.delete("/file/del", tags=["RAG文件删除"])
+@router.delete("/file/del", tags=["文件删除"])
 def file_del(mydata: filezgsarg):
     try:
         data_dict = mydata.model_dump()
@@ -590,8 +594,8 @@ def file_del(mydata: filezgsarg):
 
 
 class filedataarg4(BaseModel):
-    filedata: list[dict] = Field(frozen=True, description="要解析的文件数据[{文件数据1},{文件数据2}]，可以多个，必填")
-    ragdata: dict = Field(frozen=True, description="要解析的文件所属知识库的数据，必填")
+    filedata: list[Any] = Field(frozen=True, description="要解析的文件id[fileid1, fileid2]或文件数据[{文件数据1},{文件数据2}]，可以多个，必填")
+    ragdata: Any = Field(frozen=True, description="要解析的文件所属知识库的完整数据{}或ragid，必填")
 
 class filejxarg(publicarg):  # 通用增加和修改组合，公共+data
     data: filedataarg4

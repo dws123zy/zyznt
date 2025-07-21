@@ -6,7 +6,7 @@ import json
 import time
 import traceback
 
-from db.my import msqlc, msqlzsg
+from db.my import msqlc, msqlzsg, sqlc3
 from mod.tool import openfile, writefile  # 文件打开和写入
 
 '''日志'''
@@ -399,6 +399,20 @@ def get_app(appid):
         return {}
 
 
+'''根据fileid获取file文件数据'''
 
+def get_file(fileid):
+    try:
+        if fileid:
+            # 从mysql数据库file表中获取数据
+            file_data = msqlc(sqlc3({'fileid': fileid}, 'file', '', '', ''))
+            if file_data:
+                return file_data[0]
+        return {}  # 没找到数据，返回空字典
+    except Exception as e:
+        logger.error({"获取get_file错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return {}
 
 

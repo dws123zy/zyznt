@@ -233,6 +233,57 @@ def sqlc3(data, name, p, lm, syx):
         return ''
 
 
+'''sql查询组合,时间带时分秒、支持多选[]的函数，name自动模糊查询'''
+
+
+def sqlc3like(data, name, p, lm, syx):
+    try:
+        # sql查的基础语句，放入表名name
+        sq1 = "select SQL_CALC_FOUND_ROWS * from %s where " % name
+
+        # 加上索引检索或需要放前面的检索
+        sq2 = ""
+        if syx:
+            for s in syx:
+                if syx[s]:
+                    if sq2:
+                        sq2 = sq2 + " and %s='%s'" % (s, syx[s])
+                    else:
+                        sq2 = "%s='%s'" % (s, syx[s])
+        # 组合data里的检索项
+        if data:
+            for c in data:
+                if data[c]:
+                    if c in ['start_time']:
+                        if sq2:
+                            sq2 = sq2 + " and %s >='%s' and %s <='%s'" % (c, data[c][0], c, data[c][1])
+                        else:
+                            sq2 = "%s >='%s' and %s <='%s'" % (c, data[c][0], c, data[c][1])
+                    if c in ['name']:
+                        if sq2:
+                            sq2 = sq2 + " and %s like '%s'" % (c, '%' + data[c] + '%')
+                        else:
+                            sq2 = "%s like '%s'" % (c, '%' + data[c] + '%')
+                    else:
+                        if sq2:
+                            sq2 = sq2 + " and %s='%s'" % (c, data[c])
+                        else:
+                            sq2 = "%s='%s'" % (c, data[c])
+
+        fy = ""  # 处理分页，如有的话
+        if p and lm:
+            n = int(lm)
+            m = (int(p) - 1) * n
+            fy = " order by id desc limit %s,%s" % (m, n)
+        print('组合后的sql=', sq1+sq2+fy)
+        return sq1+sq2+fy
+    except Exception as ek:
+        print("sql查询组合命令错误:")
+        print(ek)
+        print(traceback.format_exc())
+        return ''
+
+
 '''sql增组合'''
 
 

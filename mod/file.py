@@ -15,7 +15,7 @@ from http import HTTPStatus
 from mod import textsplit
 from db.mv import insert_data
 from db import my
-from data.data import get_zydict
+from data.data import get_zydict, get_file, get_rag
 
 
 '''文件解析模块'''
@@ -364,7 +364,19 @@ def fileanalysis(filedata, ragdata):
         logger.warning(f'开始处理解析文件请求')
         # 调用线程池发起解析请求
         filelist = []
+        # 判断ragdata类型，如果为str说明是ragid, 则从数据库获取ragdata数据
+        if type(ragdata) in [str]:  # 说明传过来是ragid，则从数据库获取 ragdata 数据
+            ragdata = get_rag(ragdata)
+            if not ragdata:
+                logger.error(f'ragdata不存在， ragdata={ragdata}')
+                return ''
+        # 遍历文件列表
         for f in filedata:
+            if type(f) in [str]:  # 说明传过来的是fileid，用id从数据库获取file数据
+                f = get_file(f)
+                if not f:
+                    logger.error(f'文件不存在，文件数据={f}')
+                    return ''
             try:
                 jg = file_status(f.get('fileid', ''), 'work')
                 if jg:

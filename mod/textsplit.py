@@ -23,6 +23,7 @@ def general(text, separator='\n\n\n|\n\n|\n|。', maxsize=500, o_size=50):
         maxsize 文本块最大大小
         o_size 可重叠大小
         """
+        logger.warning(f'通用文本分段开始separator={separator} maxsize={maxsize} o_size={o_size}')
         # 判断text是否为列表，如果是转为字符，如果是字典，转为字符，如果是集合，转为字符，如果是元组，转为字符
         if type(text) in [list]:
             text = ''.join(text)
@@ -31,6 +32,7 @@ def general(text, separator='\n\n\n|\n\n|\n|。', maxsize=500, o_size=50):
 
         # 获取分隔符列表
         slist = separator.split('|')
+        logger.warning(f'通用文本分段分隔符={slist}')
 
         # 初始化递归分割器
         text_splitter = RecursiveCharacterTextSplitter(

@@ -462,7 +462,9 @@ async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''),
                 ragid = data_dict.get('ragid') if data_dict.get('ragid') else ''
                 # 获取 rag 的 split 数据
                 rag_data = get_rag(ragid)
-                split_data = str(rag_data.get('split', '')) if rag_data else ''
+                split_data = ''
+                if rag_data:
+                    split_data = str(rag_data.get('split', ''))
                 # 判断是否需要读取文件内容
                 text = ''
                 if data_dict.get('read'):  # 要求读取文件内容并存到数据库中
@@ -533,7 +535,7 @@ def file_update(mydata: filezgsarg):
         # 把部分字段值的json字符串转字典
         try:
             if data2.get('split'):
-                data2['split'] = eval(data2['split'])
+                data2['split'] = str(data2.get('split', ''))
         except Exception as e:
             logger.error(f" rag修改时json转str错误: {e}")
             logger.error(traceback.format_exc())
@@ -666,7 +668,7 @@ def part_get(mydata: cxzharg):
 '''文本段通用新增、修改、删除'''
 
 class partdataarg4(BaseModel):
-    ragdata: dict = Field(frozen=True, description="知识库数据,必填")
+    ragdata: Any = Field(frozen=True, description="知识库数据,必填")
     id: list = Field([0], description="文本段id列表,删除时使用")
     data: Union[list, dict] = Field({}, description="增加修改时必填，修改时格式[{}, {}],支持多条，增加时{}，支持单条，删除时可传检索项{}")
 

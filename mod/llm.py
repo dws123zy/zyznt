@@ -95,7 +95,8 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
                 else:  # 正常文本回复，非工具调用，流式回复
                     if delta.get('reasoning_content'):  # 输出推理内容+正常文本
                         logger.warning(f'时间{time.time()}，推理内容={delta['reasoning_content']}')
-                        reasoning_text = re.sub(r'\n{2,}', '\n', delta['reasoning_content'])
+                        # reasoning_text = re.sub(r'\n{2,}', '\n', delta['reasoning_content'])
+                        reasoning_text = str(delta['reasoning_content']).replace('\n', '<br/>')
                         return f">{reasoning_text} \n\n{delta['content']}"
                     elif delta.get('content'):
                         # print('正常文本回复，非推理')
@@ -196,8 +197,8 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
                             if not reasoning:  # 推理开始的标记处理
                                 reasoning = True
                                 yield '>'
-                            reasoning_text = re.sub(r'\n{2,}', '\n', delta['reasoning_content'])
-                            # reasoning_text = str(delta['reasoning_content']).replace('\n\n', '\n')
+                            # reasoning_text = re.sub(r'\n{2,}', '\n', delta['reasoning_content'])
+                            reasoning_text = str(delta['reasoning_content']).replace('\n', '<br/>')
                             yield reasoning_text
                         elif delta.get('content'):
                             # print('正常文本回复，非推理')

@@ -1,5 +1,5 @@
 # _*_coding:utf-8 _*_
-
+import json
 import traceback
 import time
 import logging
@@ -234,6 +234,11 @@ def filejx(filedata, ragdata):
             # 文本分段
             textlist = []
             split_data = filedata.get('split', {})
+            # 检查spit_data数据格式，如果是str，则转为dict
+            if split_data and type(split_data) in [str]:
+                split_data = eval(split_data)
+                # 把split中的separator的值中的LF转为\n
+                split_data['separator'] = split_data['separator'].replace('LF', '\n')
             split_fun = split_data.get('split_fun', 'general')
             if split_fun in ['general']:  # 通用分段
                 logger.warning(f'通用文本分段开始')
@@ -271,12 +276,12 @@ def filejx(filedata, ragdata):
             vdata = []  # 存储向量数据，单次不能超过1000M
             fileid = filedata.get('fileid', '')
             if textlist:
-                logger.warning(f'分段已成功，现在转向量并组合数据')
+                logger.warning(f'分段已成功，解析的总文本块数量={len(textlist)}，现在转向量并组合数据={textlist}')
 
                 # 获取检索向量方式
                 search = ragdata.get('search', {}).get('search_fun', 'vector')  # 拿到检索向量方式
                 # 获取embedding数据
-                embdid = ragdata.get('embedding').split('/')[1] if ragdata.get('embedding') else 'bge-large-zh-v1.5'
+                embdid = ragdata.get('embedding') if ragdata.get('embedding') else 'bge-large-zh-v1.5'
                 embddata = get_zydict('embd', embdid)
                 # 遍历文本列表，向量化文本，组合数据，入库向量数据库
                 for t in textlist:
@@ -405,6 +410,9 @@ def fileanalysis(filedata, ragdata):
 def partjx(filedata, ragdata):
     try:
         logger.warning(f'开始解析单条文本段，文件数据={filedata}')
+        # 判断ragdata的类型，如果是str说明是ragid, 则从数据库获取ragdata数据
+        if type(ragdata) in [str]:  # 说明传过来是ragid，则从数据库获取 ragdata 数据
+            ragdata = get_rag(ragdata)
         # 处理内容
         text = filedata.get('text', '')
         split_fun = filedata.get('q_text', '')  # 有值时为问答，否则为非问答
@@ -412,7 +420,7 @@ def partjx(filedata, ragdata):
         # 获取检索向量方式
         search = ragdata.get('search', {}).get('search_fun', 'vector')  # 拿到检索向量方式
         # 获取embedding数据
-        embdid = ragdata.get('embedding').split('/')[1] if ragdata.get('embedding') else 'bge-large-zh-v1.5'
+        embdid = ragdata.get('embedding') if ragdata.get('embedding') else 'bge-large-zh-v1.5'
         embddata = get_zydict('embd', embdid)
         # 遍历文本列表，向量化文本，组合数据，入库向量数据库
         if text:

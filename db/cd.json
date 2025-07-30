@@ -185,6 +185,86 @@
             }
         ]
     },
+    {
+        "path": "/ai_data",
+        "component": "Layout",
+        "redirect": "/data/ai_data",
+        "name": "/ai_data",
+        "meta": {
+            "title": "智能数据BI",
+            "icon": "system",
+            "hidden": false,
+            "alwaysShow": false,
+            "params": ""
+        },
+        "children": [
+            {
+                "path": "ai_data",
+                "component": "data/ai_data/index",
+                "name": "ai_data",
+                "meta": {
+                    "title": "智能数据BI",
+                    "icon": "el-icon-User",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
+                "path": "chat",
+                "component": "agent/chat/index",
+                "name": "chat",
+                "meta": {
+                    "title": "智能ChatBi",
+                    "icon": "el-icon-User",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
+                "path": "graphic",
+                "component": "data/graphic/index",
+                "name": "graphic",
+                "meta": {
+                    "title": "数据可视化",
+                    "icon": "role",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
+                "path": "model",
+                "component": "data/model/index",
+                "name": "model",
+                "meta": {
+                    "title": "数据模型",
+                    "icon": "menu",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
+                "path": "db",
+                "component": "data/db/index",
+                "name": "db",
+                "meta": {
+                    "title": "数据源",
+                    "icon": "tree",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            }
+        ]
+    },
 	{
         "path": "/mms",
         "component": "Layout",

@@ -157,6 +157,11 @@ def loadrag():
                     ragdata[i['ragid']]['split'] = splitdata
                 else:
                     ragdata[i['ragid']]['split'] = {}
+                if i['mcp']:
+                    mcp_data = eval(i['mcp'])
+                    ragdata[i['ragid']]['mcp'] = mcp_data
+                else:
+                    ragdata[i['ragid']]['mcp'] = {}
             logger.warning(f'reload_rag成功={ragdata}')
             return 200
         else:
@@ -183,6 +188,11 @@ def loadagent():
                 edata = eval(i['data'])
                 agentdata[i['agentid']] = i
                 agentdata[i['agentid']]['data'] = edata
+                if i['mcp']:
+                    mcp_data = eval(i['mcp'])
+                    i['mcp'] = mcp_data
+                else:
+                    i['mcp'] = {}
             logger.warning(f'reload agent成功={agentdata}')
             return 200
         else:

@@ -184,9 +184,118 @@ def read_csv(file_path):
         return ''
 
 
+'''读取docx并提取图片转为url'''
 
+import os
+import shutil
+import zipfile
+from docx.oxml.ns import qn
+from xml.etree import ElementTree as ET
+import time
+import random
 
+# 读取路径和url配置
+with open('../file/conf.txt', 'r', encoding='utf-8') as data:
+    conf = eval(data.read())
+image_dir = conf.get('image_dir') if conf.get('image_dir') else "../file/img"
+base_url = conf.get('base_url') if conf.get('base_url') else "https://example.com/images"
 
+def read_docx_img(file_path, page2=''):
+    try:
+        """
+        提取Word文档中的图片并替换为URL，返回修改后的文本内容
+
+        参数:
+        file_path: Word文档路径
+        output_image_dir: 图片保存目录
+        base_url: 图片基础URL (用于生成完整图片URL)
+
+        返回:
+        list: 替换图片为URL后的完整文本内容
+        """
+        # 拿到去掉后缀的文件名，创建保存图片的目录
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
+        output_image_dir = f"{image_dir}/{file_name}"
+        img_base_url = f"{base_url}{file_name}&filename="
+        # 确保输出目录存在
+        os.makedirs(output_image_dir, exist_ok=True)
+
+        # 解压docx文件 (docx本质是zip)
+        temp_dir = os.path.join(output_image_dir, "temp")
+        with zipfile.ZipFile(file_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+
+        # 读取文档关系文件获取图片映射
+        rels_path = os.path.join(temp_dir, "word", "_rels", "document.xml.rels")
+        image_mapping = {}
+        if os.path.exists(rels_path):
+            tree = ET.parse(rels_path)
+            root = tree.getroot()
+            for child in root:
+                if 'Relationship' in child.tag and 'image' in child.attrib['Type']:
+                    r_id = child.attrib['Id']
+                    image_path = os.path.join(temp_dir, "word", child.attrib['Target'])
+                    image_mapping[r_id] = image_path
+
+        # 处理文档内容
+        doc = Document(file_path)
+        all_text = []
+
+        # 遍历文档所有段落
+        for para in doc.paragraphs:
+            para_text = ""
+            runs_to_remove = []
+
+            for run in para.runs:
+                # 检查run中是否有图片
+                if run._element.xpath('.//pic:pic', ):
+                    # 获取图片关系ID
+                    blip = run._element.xpath('.//a:blip')
+                    if blip:
+                        r_id = blip[0].get(qn('r:embed'))
+
+                        if r_id in image_mapping:
+                            # 保存图片
+                            src_path = image_mapping[r_id]
+                            ext = os.path.splitext(src_path)[1]
+                            three_digit_random = random.randint(100, 999)
+                            image_name = f"image_{int(time.time() * 1000)}{three_digit_random}{ext}"
+                            dest_path = os.path.join(output_image_dir, image_name)
+                            shutil.copy2(src_path, dest_path)
+
+                            # 生成图片URL
+                            if img_base_url:
+                                image_url = f"{img_base_url}{image_name}"
+                            else:
+                                image_url = dest_path
+
+                            # 在文本中标记图片位置
+                            position_tag = f"[{image_name.replace(ext, '')}]"
+                            para_text += position_tag
+
+                            # 替换为URL
+                            run.text = f" {image_url} "
+                        else:
+                            run.text = " [IMAGE_NOT_FOUND] "
+                    else:
+                        run.text = " [IMAGE_ERROR] "
+
+                # 添加原始文本
+                if run.text:
+                    para_text += run.text
+
+            all_text.append(para_text)
+
+        # 清理临时文件
+        shutil.rmtree(temp_dir)
+
+        # 组合并返回完整文本
+        return all_text
+    except Exception as e:
+        logger.error("打开docx文件错误:")
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return ''
 
 
 

@@ -202,7 +202,11 @@ def filejx(filedata, ragdata):
         logger.warning(f'文件路径={file_path}')
         # 获取文件扩展名
         file_extension = os.path.splitext(file_path)[1].replace('.', '')
+        # 判断是否开启了图片提取功能，目前提取图片只支持docx
+        if file_extension in ['docx'] and ragdata.get('img') in ['t']:
+            file_extension = file_extension + '_img'
         logger.warning(f'文件格式={file_extension}')
+        # 获取格式对应的处理模块
         if file_extension in fileformat:
             file_fun = fileformat.get(file_extension, 'read_file')
             logger.warning(f'file_fun={file_fun}')

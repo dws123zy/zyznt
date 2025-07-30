@@ -13,10 +13,11 @@ import random
 import string
 # import copy
 # from typing import Union
+from urllib.parse import urlparse, parse_qs
 
 # 本地模块
 from db import my  #, mv
-from data.data import tokenac, get_zydict, loadzydict, loadagent  # get_filter, get_rag
+from data.data import tokenac, get_zydict, loadzydict, loadagent, get_rag, get_agent
 # from mod.file import fileanalysis, partjx, zyembd
 from mod.zymcp import mcp_client
 from mod.llm import openai_llm
@@ -464,9 +465,37 @@ async def mcp_tools_get(mydata: mcppublicarg):
         if tools_data:
             logger.warning(f'mcp工具列表获取成功')
             mcp_server_name = list(mcp_data.get('mcpServers', {}).keys())[0]
-            # 改写工具中的name，加上/mcp server name
+            # 改写工具中的name，加上/mcp server name，判断是否有rag、agent的mcp服务，如果有，修改下工具描述
             for tool in tools_data:
+                # 增加服务名
                 tool['function']['name'] = f"{tool['function']['name']}/{mcp_server_name}"
+                # 增加rag agent工具描述
+                if 'type=rag' in str(mcp_data):
+                    # 获取mcp服务中的url
+                    server_info = next(iter(mcp_data["mcpServers"].values()))
+                    mcp_url = server_info["url"]
+                    # 获取url中的ragid
+                    parsed_url = urlparse(mcp_url)
+                    query_params = parse_qs(parsed_url.query)
+                    ragid = query_params.get('ragid', [''])[0]
+                    # 获取描述
+                    rag_data = get_rag(ragid)
+                    description = rag_data.get('mcp', {}).get('description', '')
+
+                    tool['function']['description'] = description
+                elif 'type=agent' in str(mcp_data):
+                    # 获取mcp服务中的url
+                    server_info = next(iter(mcp_data["mcpServers"].values()))
+                    mcp_url = server_info["url"]
+                    # 获取url中的agentid
+                    parsed_url = urlparse(mcp_url)
+                    query_params = parse_qs(parsed_url.query)
+                    agentid = query_params.get('agentid', [''])[0]
+                    # 获取描述
+                    agent_data = get_agent(agentid)
+                    description = agent_data.get('mcp', {}).get('description', '')
+
+                    tool['function']['description'] = description
             return {"msg": "success", "code": "200", "data": tools_data}
         else:
             return {"msg": "mcp error", "code": "150", "data": ''}

@@ -1296,17 +1296,41 @@ hc = '\n\n'
 print(str(hc), hc.split('/'))
 
 
+cca = {"fileid": "1753670070622zF3",
+"id": "459332735697019171",
+"keyword": "",
+"metadata": '{filename: "常用命令.txt"}',
+"q_text":"",
+"s_text":"测试一下123",
+"state":"t",
+"text":"测试一下123"}
+
+print(cca)
 
 
 
+from urllib.parse import urlparse, parse_qs
+
+url = "http://127.0.0.1:53003/mcp?a=2&b=3&ragid=rag123"
+parsed_url = urlparse(url)
+query_params = parse_qs(parsed_url.query)
+
+a_value = query_params.get('a', [''])  # 获取a参数值
+b_value = query_params.get('b', [''])  # 获取b参数值
+c_value = query_params.get('ragid', '')  # 获取b参数值
+
+print(f"a的值: {a_value}")  # 输出: 2
+print(f"b的值: {b_value}")  # 输出: 3
+print(f"ragid: {c_value}")  # 输出: 3
 
 
+data_url = {"mcpServers": {"zytime": {"url": "http://127.0.0.1:53003/mcp"}}}
+# 直接访问第一个值（忽略键名）
+server_info = next(iter(data_url["mcpServers"].values()))
+print(server_info)
+url = server_info["url"]
 
-
-
-
-
-
+print(url)  # 输出相同结果
 
 
 

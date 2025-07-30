@@ -16,7 +16,7 @@ from typing import Union, Any
 
 # 本地模块
 from db import my, mv
-from data.data import tokenac, get_filter, get_zydict, get_rag, loadrag
+from data.data import tokenac, get_filter, get_zydict, get_rag, loadrag, get_file, apikeyac
 from mod.file import fileanalysis, partjx, zyembd, file_read
 from mod.tool import openfile  # 文件打开
 
@@ -448,7 +448,7 @@ async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''),
             except Exception as e:
                 results.append({
                     "filename": file.filename,
-                    "error": str(e),
+                    "msg": str(e),
                     "status": "failed"
                 })
         logger.warning(f'上传文件结果={results}')
@@ -493,7 +493,7 @@ async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''),
 @router.get("/file/getfile", tags=["文件/图片访问"])
 def file_getfile(appid: str, getid: str, filename: str):
     try:
-        if appid and id and filename:
+        if appid and getid and filename:
             file_dir = upload_dir + appid +'/'+getid+'/'
             return FileResponse(os.path.join(file_dir, filename))
         else:
@@ -576,12 +576,28 @@ def file_del(mydata: filezgsarg):
         # 组合检索项
         filterdata = {'fileid': fileid}
 
-        # 存入mysql数据库
+        # 根据fileid查询到文件的完整信息
+        file_data = get_file(fileid)
+        get_id = file_data.get('ragid', '')
+
+        # 删除向量数据库中此文件所有的文本块
+        if file_data.get('analysis') in ['ok', 'OK']:
+            jg = mv.del_data(get_id, ids=[], filterdata=filterdata)
+        # 删除服务器上的文件
+        file_path = f"{upload_dir}{file_data.get('appid', '')}/{get_id}/{file_data.get('name', '')}"
+        try:
+            os.remove(file_path)  # 删除文件
+            logger.warning(f"文件 {file_path} 已成功删除")
+        except FileNotFoundError:
+            logger.warning(f"错误：文件 {file_path} 不存在")
+        except PermissionError:
+            logger.warning(f"错误：没有权限删除 {file_path}")
+        except Exception as e:
+            logger.warning(f"删除失败: {str(e)}")
+
+        # 删除mysql数据库中的数据
         sql = my.sqls('file', filterdata)
         jg = my.msqlzsg(sql)
-
-        # 删除向量数据库中的表、字段、索引、bm25
-
         # 返回结果
         return {"msg": "success", "code": "200", "data": ''}
     except Exception as e:
@@ -656,7 +672,10 @@ def part_get(mydata: cxzharg):
         for d in datac:
             d['id'] = str(d['id'])
 
-        return {"msg": "success", "code": "200",
+        # 获取文本段表单数据
+        formdata = get_zydict('form', 'part_form')
+        # 返回结果
+        return {"msg": "success", "code": "200", "form": formdata,
                 "data": {"data": datac, "nub": nub, "page": data2.get('page'),"limit": data2.get('limit')}}
         # return Response(content=json.dumps(rdata), media_type="application/json")
     except Exception as e:
@@ -668,9 +687,9 @@ def part_get(mydata: cxzharg):
 '''文本段通用新增、修改、删除'''
 
 class partdataarg4(BaseModel):
-    ragdata: Any = Field(frozen=True, description="知识库数据,必填")
+    ragdata: Any = Field(frozen=True, description="ragid或知识库完整数据,必填")
     id: list = Field([0], description="文本段id列表,删除时使用")
-    data: Union[list, dict] = Field({}, description="增加修改时必填，修改时格式[{}, {}],支持多条，增加时{}，支持单条，删除时可传检索项{}")
+    data: Union[list, dict] = Field({}, description="增加修改时必填，修改时格式[{}, {}],支持多条，修改时本条数据的所有字段都要传，增加时{}，支持单条，删除时可传检索项{}")
 
 class partzgsarg(publicarg):  # 通用增加和修改组合，公共+data
     data: partdataarg4
@@ -722,7 +741,9 @@ def part_update(mydata: partzgsarg):
 
         # 获取embedding数据
         ragdata = data2.get('ragdata', {})
-        embdid = ragdata.get('embedding').split('/')[1] if ragdata.get('embedding') else 'bge-large-zh-v1.5'
+        if type(ragdata) in [str]:  # 如果是字符，说明是ragid，使用它获取 ragdata
+            ragdata = get_rag(ragdata)
+        embdid = ragdata.get('embedding') if ragdata.get('embedding') else 'bge-large-zh-v1.5'
         embddata = get_zydict('embd', embdid)
         # 遍历修改的数据，重新转换向量，判断是否有问，如果有问为向量文本
         for part in partdata:
@@ -749,7 +770,7 @@ def part_update(mydata: partzgsarg):
                     part['vector'] = zyembd(part.get('text', ''), embddata)
 
         # 调取转向量函数，转换并入库
-        jg = mv.upsert_data(partdata, data2.get('ragdata', {}).get('ragid', ''))
+        jg = mv.upsert_data(partdata, ragdata.get('ragid', ''))
 
         if jg:
             return {"msg": "success", "code": "200", "data": ''}
@@ -773,12 +794,14 @@ def part_del(mydata: partzgsarg):
             logger.warning(f'token验证失败')
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         data2 = data_dict.get('data', {})
-        # 判断是否为问答
+        # 获取检索项
         filterdata = data2.get('data', {})
-        if not filterdata:
-            return {"msg": "检索条件错误", "code": "151", "data": ""}
-        # 调取转向量函数，转换并入库
-        jg = mv.del_data(data2.get('ragdata', {}).get('ragid', ''), ids=data2.get('id', []), filterdata=filterdata)
+        # if not filterdata:
+        #     return {"msg": "检索条件错误", "code": "151", "data": ""}
+        # 把id转为int，因为数据库只接受int
+        id_list = [int(i) for i in data2.get('id', [])]
+        # 调取转向量函数，删除数据
+        jg = mv.del_data(data2.get('ragdata', ''), ids=id_list, filterdata=filterdata)
         if jg:
             return {"msg": "success", "code": "200", "data": jg}
         else:
@@ -801,6 +824,7 @@ class vdataarg5(BaseModel):
     filter: dict = Field({}, description="检索项，格式：{'字段名':'字段值'}")
     filter_json: dict = Field({}, description="json字段检索项，格式：{'字段名':{字段名：值}}")
     rerank: str = Field('', description="rerank重排序模型")
+    apikey: str = Field('', description="apikey验证,没有token时，传apikey做验证")
 
 class ragvarg(publicarg):  # rag知识搜索
     data: vdataarg5
@@ -824,10 +848,15 @@ def rag_search(mydata: ragvarg):
         ragid = data.get('ragid', '')
         # 获取rag配置数据
         ragdata = get_rag(ragid)
-        search_fun = ragdata.get('search', {}).get('search_fun', 'vector')
+        search_data = ragdata.get('search', {})
+        search_fun = search_data.get('search_fun', 'vector')
         # 获取embedding数据
-        embdid = ragdata.get('embedding').split('/')[1] if ragdata.get('embedding') else 'bge-large-zh-v1.5'
+        embdid = ragdata.get('embedding') if ragdata.get('embedding') else 'bge-large-zh-v1.5'
         embddata = get_zydict('embd', embdid)
+        # 获取top k 的limit和相似度score的值
+        limit = search_data.get('limit', 10) if not data.get('limit') else data.get('limit', 10)
+        score = search_data.get('score', 0.1) if not data.get('score') else data.get('score', 0.1)
+        # 搜索知识
         datac = []
         logger.warning(f'获取到的数据:search_fun={search_fun}, embddata={embddata}')
         if search_fun in ['vector', 'sparse']:  # 单向量搜索
@@ -836,11 +865,11 @@ def rag_search(mydata: ragvarg):
                 # 把text转为向量后传入搜索函数
                 textv = zyembd(data.get('text', ''), embddata)
                 datac = mv.vector_search(ragdata.get('ragid', ''), [textv], 'vector',
-                                         limit=data.get('limit', 10), radius=data.get('score', 0.1))
+                                         limit=limit, radius=score)
             else:  # 稀疏向量搜索
                 logger.warning(f'稀疏向量搜索开始')
                 datac = mv.vector_search(ragdata.get('ragid', ''), [data.get('text', '')], 'sparse',
-                                         limit=data.get('limit', 10),  radius=data.get('score', 0.1))
+                                         limit=limit,  radius=score)
         elif search_fun in ['vs']:  # 混合搜索
             logger.warning(f'混合搜索开始')
             # 把text转为向量后传入搜索函数
@@ -857,7 +886,7 @@ def rag_search(mydata: ragvarg):
                 rerank = 'RRFRanker'
             # 执行混合搜索
             datac = mv.hybrid_search(ragdata.get('ragid', ''), [textv], [data.get('text', '')],
-                                 limit=data.get('limit', 5), reranking=rerank, rrv=rrv)
+                                 limit=limit, reranking=rerank, rrv=rrv)
         logger.warning(f'搜索结果={datac}')
         return {"msg": "success", "code": "200", "data": datac}
     except Exception as e:
@@ -866,7 +895,72 @@ def rag_search(mydata: ragvarg):
         return {"msg": "error", "code": "501", "data": ""}
 
 
+'''MCP-server-rag知识搜索功能，向量、稀疏向量计算相似度+搜索'''
 
+@router.api_route("/rag/search/mcp", methods=["POST"], tags=["mcp-rag知识搜索"])
+def rag_search_mcp(mydata: ragvarg):
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'rag_search_mcp收到的请求数据={data_dict}')
+
+        data = data_dict.get('data', {})
+        # 获取检索条件
+        filterdata = data.get('filter', {})
+        # 获取ragid
+        ragid = data.get('ragid', '')
+        # 获取rag配置数据
+        ragdata = get_rag(ragid)
+        appid = ragdata.get('appid', '')
+        # 验证apikey
+        if not apikeyac(data_dict.get('apikey', ''), appid):
+            logger.warning(f'apikey或ragid验证失败')
+            return {"msg": "apikey或ragid验证失败", "code": "403", "data": ""}
+        # 获取搜索功能配置
+        search_data = ragdata.get('search', {})
+        search_fun = search_data.get('search_fun', 'vector')
+        # 获取embedding数据
+        embdid = ragdata.get('embedding') if ragdata.get('embedding') else 'bge-large-zh-v1.5'
+        embddata = get_zydict('embd', embdid)
+        # 获取top k 的limit和相似度score的值
+        limit = search_data.get('limit', 10) if not data.get('limit') else data.get('limit', 10)
+        score = search_data.get('score', 0.1) if not data.get('score') else data.get('score', 0.1)
+        # 搜索知识
+        datac = []
+        logger.warning(f'获取到的数据:search_fun={search_fun}, embddata={embddata}')
+        if search_fun in ['vector', 'sparse']:  # 单向量搜索
+            if search_fun in ['vector']:  # 密集向量搜索
+                logger.warning(f'向量搜索开始')
+                # 把text转为向量后传入搜索函数
+                textv = zyembd(data.get('text', ''), embddata)
+                datac = mv.vector_search(ragdata.get('ragid', ''), [textv], 'vector',
+                                         limit=limit, radius=score)
+            else:  # 稀疏向量搜索
+                logger.warning(f'稀疏向量搜索开始')
+                datac = mv.vector_search(ragdata.get('ragid', ''), [data.get('text', '')], 'sparse',
+                                         limit=limit,  radius=score)
+        elif search_fun in ['vs']:  # 混合搜索
+            logger.warning(f'混合搜索开始')
+            # 把text转为向量后传入搜索函数
+            textv = zyembd(data.get('text', ''), embddata)
+            # 组合重排序
+            rerank = 'RRFRanker'
+            rrv = '60'
+            search_data = ragdata.get('search', {})
+            if 'wr' in search_data:
+                rrv = search_data.get('wr', '0.8/0.5')
+                rerank = 'WeightedRanker'
+            elif 'rr' in search_data:
+                rrv = search_data.get('rr', '60')
+                rerank = 'RRFRanker'
+            # 执行混合搜索
+            datac = mv.hybrid_search(ragdata.get('ragid', ''), [textv], [data.get('text', '')],
+                                 limit=limit, reranking=rerank, rrv=rrv)
+        logger.warning(f'搜索结果={datac}')
+        return {"msg": "success", "code": "200", "data": datac}
+    except Exception as e:
+        logger.error(f"rag知识搜索错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
 
 
 

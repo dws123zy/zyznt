@@ -153,7 +153,9 @@ rag = {
             ('rerank', 'varchar(30) default "" comment "重排序模型，数据字典id"'),
             ('search', 'varchar(300) default "{}" comment "搜索方式,json格式"'),
             ('split', 'varchar(300) default "{}" comment "文本切片方式，json格式"'),
-            ('type', 'varchar(20) default "in" comment "知识库类型，内部和外部 in/out"')
+            ('type', 'varchar(20) default "in" comment "知识库类型，内部和外部 in/out"'),
+            ('mcp', 'varchar(500) default "{}" comment "rag知识库mcp server配置数据"'),
+            ('img', 'varchar(5) default "t" comment "是否从文件中提取图片保存并把原图片替换为url，t为开，f为关，默认t"')
         ],
         'indexes': [
             ('idx_ragid', 'ragid'),
@@ -204,7 +206,8 @@ agent = {
             ('user', 'varchar(50) default "" comment "创建人"'),
             ('department', 'varchar(50) default "" comment "部门"'),
             ('state', 'varchar(5) default "t" comment "智能体状态，t为开，f为关，默认t"'),
-            ('data', 'text default "{}" comment "智能体配置数据,以json格式存储"')
+            ('data', 'text default "{}" comment "智能体配置数据,以json格式存储"'),
+            ('mcp', 'varchar(500) default "{}" comment "agent智能体mcp server配置数据"')
         ],
         'indexes': [
             ('idx_agentid', 'agentid'),

@@ -824,7 +824,8 @@ class vdataarg5(BaseModel):
     filter: dict = Field({}, description="检索项，格式：{'字段名':'字段值'}")
     filter_json: dict = Field({}, description="json字段检索项，格式：{'字段名':{字段名：值}}")
     rerank: str = Field('', description="rerank重排序模型")
-    apikey: str = Field('', description="apikey验证,没有token时，传apikey做验证")
+    apikey: str = Field('', description="apikey验证,没有token时，传apikey做验证"),
+    data2text: bool = Field(False, description="是否将原list列表结果转为text后返回")
 
 class ragvarg(publicarg):  # rag知识搜索
     data: vdataarg5
@@ -888,6 +889,21 @@ def rag_search(mydata: ragvarg):
             datac = mv.hybrid_search(ragdata.get('ragid', ''), [textv], [data.get('text', '')],
                                  limit=limit, reranking=rerank, rrv=rrv)
         logger.warning(f'搜索结果={datac}')
+        # 判断是否需要将结果转为text
+        if data.get('data2text', False):
+            # 判断datac是否有数据，如果没有，则返回未查询到相关知识数据
+            if not datac or not datac[0]:
+                return {"msg": "未查询到相关知识数据", "code": "200",
+                        "data": f'您好，根据您的相关搜索主题："{data.get('text', '')}"，未查询到相关知识数据!'}
+            # 将结果转为text
+            data_text = f'<h4>您好，根据您的相关搜索主题："{data.get('text', '')}"，搜索到的知识结果如下：</h4> <br>'
+            nub = 0
+            for t in datac[0]:
+                nub += 1
+                data_text += f"""<br> <h4>结果{nub}：</h4> <br> <b>知识内容：</b> {t.get("text", "")} <br> <b>搜索文本：</b> {t.get('q_text', '')}
+                <br> <b>相似度：</b> {t.get('distance', '')} <br> <b>元数据：</b> {t.get('metadata', '')} <br> """
+            return {"msg": "success", "code": "200", "data": data_text}
+        # 正常返回格式化数据
         return {"msg": "success", "code": "200", "data": datac}
     except Exception as e:
         logger.error(f"rag知识搜索错误: {e}")

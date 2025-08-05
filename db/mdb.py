@@ -240,6 +240,26 @@ agent_record = {
 }
 
 
+'''智能BI数据模型表data_model'''
+
+data_set = {
+        'columns': [
+            ('id', 'int auto_increment primary key'),
+            ('appid', 'varchar(20) default "" comment "appid"'),
+            ('table_name', 'varchar(30) default "" comment "表名"'),
+            ('table_label', 'varchar(30) default "" comment "表标签"'),
+            ('db_id', 'varchar(20) default "" comment "数据源连接的配置id"'),
+            ('type', 'varchar(10) default "table" comment "表类型，实体表table 、视图view"'),
+            ('time', 'varchar(20) default "" comment "更新时间"'),
+            ('user', 'varchar(50) default "" comment "创建人"'),
+            ('data_id', 'varchar(50) default "" comment "数据模型id"'),
+            ('data', 'text default "{}" comment "数据模型数据,以json格式存储"')
+        ],
+        'indexes': [
+            ('idx_data_id', 'data_id'),
+            ('idx_appid_user', 'appid, user')
+        ]
+}
 
 
 '''' 表结构总数据  '''
@@ -252,6 +272,7 @@ TABLE_DEFINITIONS = {
     'file': file,  # 文件表
     'agent': agent,  # 智能体
     'agent_record': agent_record,  # 智能体对话记录
+    'data_set': data_set,  # 数据集表
 }
 
 

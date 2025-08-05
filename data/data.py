@@ -157,7 +157,7 @@ def loadrag():
                     ragdata[i['ragid']]['split'] = splitdata
                 else:
                     ragdata[i['ragid']]['split'] = {}
-                if i['mcp']:
+                if i.get('mcp'):
                     mcp_data = eval(i['mcp'])
                     ragdata[i['ragid']]['mcp'] = mcp_data
                 else:
@@ -188,7 +188,7 @@ def loadagent():
                 edata = eval(i['data'])
                 agentdata[i['agentid']] = i
                 agentdata[i['agentid']]['data'] = edata
-                if i['mcp']:
+                if i.get('mcp'):
                     mcp_data = eval(i['mcp'])
                     i['mcp'] = mcp_data
                 else:

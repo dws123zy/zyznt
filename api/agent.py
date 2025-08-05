@@ -280,7 +280,7 @@ def datadict_get(mydata: cxzharg):
         filterdata = data.get('filter', {})
         if not filterdata.get('appid', ''):  # 如果检索项中没有appid，则使用当前user的appid
             filterdata['appid'] = data_dict.get('appid', '')
-        sql = my.sqlc3(filterdata, 'zydict', data.get('page'), data.get('limit'), '')
+        sql = my.sqlc3like(filterdata, 'zydict', data.get('page'), data.get('limit'), '')
         datac, nub = my.msqlcxnum(sql)  # 查询数据
 
         # 把部分字段值的json字符串转字典

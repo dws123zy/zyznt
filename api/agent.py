@@ -92,7 +92,10 @@ def agent_get(mydata: cxzharg):
         for d in datac:
             try:
                 if d.get('data'):
-                    d['data'] = eval(d['data'])
+                    if "{" in str(d.get('data')):
+                        d['data'] = eval(d['data'])
+                    else:
+                        d['data'] = my.safe_base64_to_list(d['data'])
             except Exception as e:
                 logger.error(f" agent查询时转字典错误: {e}")
                 logger.error(traceback.format_exc())
@@ -133,7 +136,8 @@ def agent_add(mydata: agentzgsarg):
         # 把部分字段值的字典转字符
         try:
             if data2.get('data'):
-                data2['data'] = str(data2['data'])
+                b64rdata = my.list_to_safe_base64(data2['data'])
+                data2['data'] = b64rdata
         except Exception as e:
             logger.error(f" agent新增时json转str错误: {e}")
             logger.error(traceback.format_exc())
@@ -188,7 +192,8 @@ def agent_update(mydata: agentzgsarg):
         # 把部分字段值的字典转字符
         try:
             if data2.get('data'):
-                data2['data'] = str(data2['data'])
+                b64rdata = my.list_to_safe_base64(data2['data'])
+                data2['data'] = b64rdata
         except Exception as e:
             logger.error(f" agent修改时json转str错误: {e}")
             logger.error(traceback.format_exc())
@@ -203,7 +208,7 @@ def agent_update(mydata: agentzgsarg):
             loadagent()  # 更新agent数据到内存
             # 返回结果
             return {"msg": "success", "code": "200", "data": ''}
-        logger.warning(f'修改知识库失败{agentid}')
+        logger.warning(f'修改智能体失败{agentid}')
         return {"msg": "db error", "code": "150", "data": ''}
     except Exception as e:
         logger.error(f"agent修改接口错误: {e}")

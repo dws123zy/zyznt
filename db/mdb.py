@@ -262,6 +262,26 @@ data_set = {
 }
 
 
+'''智能BI数据常用查询表query'''
+
+query = {
+        'columns': [
+            ('id', 'int auto_increment primary key'),
+            ('appid', 'varchar(20) default "" comment "appid"'),
+            ('name', 'varchar(30) default "" comment "查询名称"'),
+            ('query_id', 'varchar(30) default "" comment "查询id"'),
+            ('type', 'varchar(10) default "bi" comment "查询类型，chat(对话)、bi（数据分析）、chart（图表）、dashboard（仪表盘）"'),
+            ('time', 'varchar(20) default "" comment "更新时间"'),
+            ('user', 'varchar(50) default "" comment "创建人"'),
+            ('data', 'text default "{}" comment "查询的配置数据，以json格式存入"')
+        ],
+        'indexes': [
+            ('idx_query_id', 'query_id'),
+            ('idx_appid_user', 'appid, user')
+        ]
+}
+
+
 '''' 表结构总数据  '''
 
 TABLE_DEFINITIONS = {
@@ -273,6 +293,7 @@ TABLE_DEFINITIONS = {
     'agent': agent,  # 智能体
     'agent_record': agent_record,  # 智能体对话记录
     'data_set': data_set,  # 数据集表
+    'query': query,  # 常用查询表
 }
 
 

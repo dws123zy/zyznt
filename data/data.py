@@ -6,7 +6,7 @@ import json
 import time
 import traceback
 
-from db.my import msqlc, msqlzsg, sqlc3
+from db.my import msqlc, msqlzsg, sqlc3, safe_base64_to_list
 from mod.tool import openfile, writefile  # 文件打开和写入
 
 '''日志'''
@@ -185,7 +185,15 @@ def loadagent():
         datacagent = msqlc(sqla)
         if datacagent:
             for i in datacagent:
-                edata = eval(i['data'])
+                # 判断data是否有值
+                edata = {}
+                if i.get('data'):
+                    if '{' in str(i['data']):
+                        print('走eval')
+                        edata = eval(i['data'])
+                    else:
+                        print('走safe_base64_to_list')
+                        edata = safe_base64_to_list(i['data'])
                 agentdata[i['agentid']] = i
                 agentdata[i['agentid']]['data'] = edata
                 if i.get('mcp'):

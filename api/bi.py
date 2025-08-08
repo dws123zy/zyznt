@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 import traceback
 from typing import Union, Any
 import time
+import random
+import string
 
 # 本地模块
 from db.sa import db_connection, export_db_schema
@@ -354,6 +356,209 @@ def dataset_del(mydata: datamodarg):
 
 
 
+'''智能数据Bi数据查询功能模块'''
+
+
+
+'''智能数据Bi数据查询通用新增、修改、删除'''
+
+class dataqueryarg3(BaseModel):
+    query_id: str = Field('', description="数据查询id,修改删除时必填")
+    data: dict = Field({}, description="增加或修改的数据，增加修改时必填")
+
+class dataqueryarg(publicarg):  # 通用增加和修改组合，公共+data
+    data: dataqueryarg3
+
+
+'''智能数据Bi数据查询接口'''
+
+@router.post("/data_query/get", tags=["智能Bi数据查询"])
+def data_query_get(mydata: cxzharg):
+    """智能Bi数据查询"""
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'data_query_get收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        data = data_dict.get('data', {})
+
+        # 写sql
+        filterdata = data.get('filter', {})
+        if not filterdata.get('appid', ''):  # 如果检索项中没有appid，则使用当前user的appid
+            filterdata['appid'] = data_dict.get('appid', '')
+        sql = my.sqlc3like(filterdata, 'query', data.get('page'), data.get('limit'), '')
+        datac, nub = my.msqlcxnum(sql)  # 查询数据
+
+        # 把部分字段值的json字符串转字典
+        for d in datac:
+            try:
+                if d.get('data'):
+                    d['data'] = my.safe_base64_to_list(d['data'])
+            except Exception as e:
+                logger.error(f" agent查询时转字典错误: {e}")
+                logger.error(traceback.format_exc())
+
+        # 获取表单数据form
+        # formdata = get_zydict('form', 'agent_form')
+
+        return {"msg": "success", "code": "200",
+                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit')}}
+    except Exception as e:
+        logger.error(f"智能数据Bi数据查询接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''智能Bi数据查询新增接口'''
+
+@router.post("/data_query/add", tags=["智能Bi数据查询新增"])
+def data_query_add(mydata: dataqueryarg):
+    """智能数据查询新增接口"""
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'data_query_add收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 拿到要新增的配置数据
+        data = data_dict.get('data', {})
+        data2 = data.get('data', {})
+        # query_id
+        query_id  = 'query'+str(int(time.time()))+''.join(random.choice(string.digits) for _ in range(3))
+        data2['query_id'] = query_id
+        # 获取当前时间
+        nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        data2['time'] = nowtime
+        # 判断data2中是否有appid，如果没有则使用当前user的appid
+        if not data2.get('appid', ''):
+            data2['appid'] = data_dict.get('appid', '')
+        # 判断data2中是否有user，如果没有则使用当前user
+        if not data2.get('user', ''):
+            data2['user'] = data_dict.get('user', '')
+        # 判断是否有data的值
+        if not data2.get('data', ''):
+            data2['data'] = {}
+
+        # 把部分字段值的字典转字符
+        try:
+            if data2.get('data'):
+                b64rdata = my.list_to_safe_base64(data2['data'])
+                data2['data'] = b64rdata
+        except Exception as e:
+            logger.error(f"智能数据查询新增时json转str错误: {e}")
+            logger.error(traceback.format_exc())
+
+        # 存入mysql数据库
+        sql = my.sqlz(data2, 'query')
+        jg = my.msqlzsg(sql)
+        if jg:
+            logger.warning(f'存入数据库成功{query_id}')
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": {"query_id": query_id}}
+
+        # 返回结果
+        logger.warning(f'智能数据查询新增失败{query_id}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"智能数据查询新增接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
+
+
+'''智能Bi数据查询修改接口'''
+
+@router.put("/data_query/update", tags=["智能Bi数据查询修改"])
+def data_query_update(mydata: dataqueryarg):
+    """智能数据查询修改接口"""
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'data_query_update收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 拿到要修改的数据
+        data = data_dict.get('data', {})
+        data2 = data.get('data', {})
+        # 获取query_id
+        query_id  = data.get('query_id', '')
+        if not query_id:
+            query_id = data2.get('query_id', '')
+            if not query_id:
+                logger.warning(f'query_id不能为空')
+                return {"msg": "query_id不能为空", "code": "151", "data": ""}
+        # 获取当前时间
+        nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        data2['time'] = nowtime
+
+        # data2中去除id字段，因为数据库不允许改id
+        if 'id' in data2:
+            del data2['id']
+
+        # 把部分字段值的字典转字符
+        try:
+            if data2.get('data'):
+                b64rdata = my.list_to_safe_base64(data2['data'])
+                data2['data'] = b64rdata
+        except Exception as e:
+            logger.error(f"智能Bi数据查询修改时json转str错误: {e}")
+            logger.error(traceback.format_exc())
+
+        # 组合检索项
+        filterdata = {'appid': data2.get('appid', ''), 'query_id': query_id}
+
+        # 存入mysql数据库
+        sql = my.sqlg(data2, 'query', filterdata)
+        jg = my.msqlzsg(sql)
+        if jg:
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": ''}
+        logger.warning(f'智能Bi数据查询修改失败{query_id}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"智能Bi数据查询修改接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+
+'''智能Bi数据查询删除接口'''
+
+@router.delete("/data_query/del", tags=["智能Bi数据查询删除"])
+def data_query_del(mydata: dataqueryarg):
+    """智能数据查询删除接口"""
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'data_query_del收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        # 获取query_id
+        query_id = data_dict.get('data', {}).get('query_id', '')
+        if not query_id:
+            return {"msg": "query_id不正确", "code": "151", "data": ""}
+
+        # 组合检索项
+        filterdata = {'query_id': query_id}
+
+        # 存入mysql数据库
+        sql = my.sqls('query', filterdata)
+        jg = my.msqlzsg(sql)
+        if jg:
+            logger.warning(f'删除数据库表、mysql数据库成功{query_id}')
+            # 返回结果
+            return {"msg": "success", "code": "200", "data": ''}
+
+        # 返回结果
+        logger.warning(f'智能Bi数据查询删除失败{query_id}')
+        return {"msg": "db error", "code": "150", "data": ''}
+    except Exception as e:
+        logger.error(f"智能Bi数据查询删除接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "data error", "code": "501", "data": ""}
 
 
 

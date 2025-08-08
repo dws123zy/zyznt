@@ -158,7 +158,7 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
         # 执行LLM请求
         now_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
         yield {"time": now_time, "text": "开始调用llm"}
-        logger.warning(f'开始调用llm,现在的msg={msg}')
+        logger.warning(f'\n\n开始调用llm,现在的msg={msg}\n\n')
         completion = await client.chat.completions.create(
             model=mod,
             temperature=float(temperature),  # 热度
@@ -347,6 +347,35 @@ async def tool_call_result(accumulated_tool_calls):
 
 
 
+'''openai-sdk-llm-json大模型'''
+
+def openai_llm_json(msg, apikey, url, mod, tools=None, temperature=0.7):
+    try:
+        if not tools:
+            tools = None
+        # 组合客户端
+        client = OpenAI(
+            api_key = apikey,
+            base_url=url,
+        )
+
+        # 执行LLM请求
+        completion = client.chat.completions.create(
+            model=mod,
+            temperature=float(temperature),  # 热度
+            messages=msg,  # 消息列表、提示词、上下文
+            response_format={"type": "json_object"}
+        )
+        json_string = completion.choices[0].message.content
+        # print(json_string)
+        json_object = json.loads(json_string)
+
+        return json_object
+    except Exception as e:
+        logger.error({"openai_llm stream错误:": e})
+        logger.error(e)
+        logger.error(traceback.format_exc())
+        return ''
 
 
 

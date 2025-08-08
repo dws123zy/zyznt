@@ -15,10 +15,10 @@ from datetime import datetime
 from requests import session
 
 # 本地模块
-from db import mv, my, zyredis
+from db import mv, my, zyredis, sa
 from data.data import get_zydict, apikeyac, get_agent, get_rag
 from mod.file import zyembd
-from mod.llm import openai_llm, openai_llm_stream
+from mod.llm import openai_llm, openai_llm_stream, openai_llm_json
 
 
 '''agent智能体运行模块'''
@@ -95,6 +95,251 @@ def agent_rag_search(data):
         return ''
 
 
+'''改写sql中的时间格式化示例llm用'''
+
+sql_example1 = json.dumps(
+    [{"text":"查询月度保单数据", "db_id": "db1001", "sql": "SELECT * FROM insurance WHERE time >= '2025-08-01 00:00:00' AND time < '2025-09-01 00:00:00';"}],
+    ensure_ascii=False
+)
+
+sql_example2 = json.dumps(
+    [{"text":"查询月度保单数据", "db_id": "db1001", "sql": "SELECT * FROM insurance WHERE time >= '2025-07-01 00:00:00' AND time < '2025-08-01 00:00:00';"},
+     {"text":"查询月度保险代理人数据", "db_id": "db1001", "sql": "SELECT * FROM agent WHERE time >= '2025-07-01 00:00:00' AND time < '2025-08-01 00:00:00';"}],
+    ensure_ascii=False
+)
+
+
+sql_json_msg=[{
+        "role": "system",
+        "content": """根据用户的文本内容和现在的时间，计算出用户查询需要的具体时间或时间段，然后改写为SQL查询语句中的时间，然后按原格式并返回SQL查询数据。输出为JSON格式。
+        示例：
+        Q：文本内容是："帮我查询上个月的保单数据"， 现在的时间是："2025-08-03 09:01:00"，原始的SQL查询数据是：'''[{"text":"查询月度保单数据", "db_id": "db1001", "sql": "SELECT * FROM insurance WHERE time >= '2025-08-01 00:00:00' AND time < '2025-09-01 00:00:00';"}]'''
+        A：%s
+
+        Q：用户的文本内容是："帮我查询这个月的代理人的业绩数据"， 现在的时间是："2025-08-23 16:01:00"，原始的SQL查询数据是：[{"text":"查询月度保单数据", "db_id": "db1001", "sql": "SELECT * FROM insurance WHERE time >= '2025-01-01 00:00:00' AND time < '2025-02-01 00:00:00';"},
+     {"text":"查询月度保险代理人数据", "db_id": "db1001", "sql": "SELECT * FROM agent WHERE time >= '2025-01-01 00:00:00' AND time < '2025-02-01 00:00:00';"}]
+        A：%s""" % (sql_example1, sql_example2)
+    }]
+
+
+'''格式化数据生成md格式'''
+
+
+def smart_truncate(text, max_length=110):
+    """智能截断文本，尽量在空格处分词"""
+    try:
+        if len(text) <= max_length:
+            return text
+
+        # 尝试在标点处截断（逗号、句号等）
+        truncated = text[:max_length - 3]
+        for punct in ['，', '。', ',', '.', '；', ';']:
+            if punct in truncated:
+                last_punct = truncated.rfind(punct)
+                if last_punct > max_length // 2:  # 确保不会截得太短
+                    return truncated[:last_punct + 1] + "..."
+        return truncated + "..."
+    except Exception as e:
+        logger.error(f"数据格式化错误: {e}")
+        logger.error(traceback.format_exc())
+        return text
+
+
+def generate_markdown_table(data, alignments=None, max_col_width=100):
+    """
+    生成优化的Markdown表格
+
+    参数:
+    data: 数据列表
+    alignments: 每列对齐方式，如['left', 'center', 'left']
+    max_col_width: 最大列宽
+    """
+    try:
+        if not data:
+            return ""
+
+        headers = list(data[0].keys())
+        num_columns = len(headers)
+        alignments = alignments or ['left'] * num_columns
+
+        # 计算每列最大显示宽度（考虑中文）
+        col_widths = {}
+        for i, header in enumerate(headers):
+            # 中文每个字符宽度为2
+            max_width = len(header) * 2 if any('\u4e00' <= char <= '\u9fff' for char in header) else len(header)
+
+            for item in data:
+                value = str(item.get(header, ""))
+                display_value = smart_truncate(value, max_col_width)
+
+                # 计算显示宽度（中文算2个字符）
+                display_width = sum(2 if '\u4e00' <= char <= '\u9fff' else 1 for char in display_value)
+
+                if display_width > max_width:
+                    max_width = display_width
+
+            # 确保最小宽度为4
+            col_widths[header] = max(4, max_width)
+
+        # 生成表头
+        header_cells = []
+        for i, header in enumerate(headers):
+            # 中文每个字符宽度为2，需要特殊处理填充
+            chinese_count = sum(1 for char in header if '\u4e00' <= char <= '\u9fff')
+            non_chinese_count = len(header) - chinese_count
+            total_width = chinese_count * 2 + non_chinese_count
+
+            # 计算需要填充的空格数
+            padding = col_widths[header] - total_width
+            if padding > 0:
+                padded_header = header + ' ' * padding
+            else:
+                padded_header = header
+
+            header_cells.append(padded_header)
+
+        header_row = "| " + " | ".join(header_cells) + " |"
+
+        # 生成分隔行
+        separator_cells = []
+        for i, header in enumerate(headers):
+            align = alignments[i]
+            width = col_widths[header]
+
+            if align == 'left':
+                separator = ":" + "-" * (width - 1)
+            elif align == 'center':
+                separator = ":" + "-" * (width - 2) + ":"
+            elif align == 'right':
+                separator = "-" * (width - 1) + ":"
+            else:
+                separator = "-" * width
+
+            separator_cells.append(separator)
+
+        separator_row = "| " + " | ".join(separator_cells) + " |"
+
+        # 生成数据行
+        data_rows = []
+        for item in data:
+            row_cells = []
+            for i, header in enumerate(headers):
+                raw_value = str(item.get(header, ""))
+                display_value = smart_truncate(raw_value, max_col_width)
+
+                # 计算显示宽度（中文算2个字符）
+                chinese_count = sum(1 for char in display_value if '\u4e00' <= char <= '\u9fff')
+                non_chinese_count = len(display_value) - chinese_count
+                total_width = chinese_count * 2 + non_chinese_count
+
+                # 计算需要填充的空格数
+                padding = col_widths[header] - total_width
+                if padding > 0:
+                    padded_value = display_value + ' ' * padding
+                else:
+                    padded_value = display_value
+
+                row_cells.append(padded_value)
+
+            data_rows.append("| " + " | ".join(row_cells) + " |")
+
+        return "\n".join([header_row, separator_row] + data_rows)
+    except Exception as e:
+        logger.error(f"生成Markdown表格错误: {e}")
+        logger.error(traceback.format_exc())
+        return str(data)
+
+
+
+
+def data2md_table(data2):
+    try:
+        # # 生成表头
+        # header = "| " + " | ".join(data2[0].keys()) + " |\n"
+        # separator = "| " + " | ".join(["---"] * len(data2[0])) + " |\n"
+        #
+        # # 生成数据行 - 修复点在这里
+        # rows = ""
+        # for item in data2:
+        #     # 确保所有值转换为字符串
+        #     rows += "| " + " | ".join(str(value) for value in item.values()) + " |\n"
+        #
+        # markdown_table = header + separator + rows
+        return generate_markdown_table(data2)
+    except Exception as e:
+        logger.error(f"md数据格式化表格错误: {e}")
+        logger.error(traceback.format_exc())
+        return str(data2)
+
+
+
+
+
+'''智能体数据Bi处理模块'''
+
+def agent_bi(q_data, appid):
+    """智能体数据Bi处理模块"""
+    try:
+        msg_bi = ''  # 最终要返回的内容
+        bi_sql_json = []
+        bi_data = q_data.get('bi_data', {})
+        if not bi_data:
+            return ''
+        # 判断是否需要llm智能改写sql中的时间
+        q_text = str(q_data.get('msg', [])[-1].get('content', ''))  # 获取用户输入的文本内容
+        if bi_data.get('sql_time') in ['t'] and bi_data.get('sql'):
+            nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            # 调用格式化输出大模型根据用户的文件内容分析，并改写sql中的时间
+            msg_text = f"""请根据提供的文本内容和现在的时间，计算出用户查询需要的具体时间或时间段，然后改写为SQL查询语句中的时间，
+            然后按原格式并返回改写后SQL查询数据。输出为JSON格式。如果无需改时间，直接返回原数据即可。文本内容是："{q_text}"，现在时间是："{nowtime}"，原始的SQL查询数据是：{bi_data.get('sql')}"""
+            msg = sql_json_msg+[{"role": "user", "content": msg_text}]
+            llm_data = get_zydict('llm',f'llm_json_{appid}')
+            sql_data = openai_llm_json(msg, llm_data.get('apikey', ''), llm_data.get('url', ''), llm_data.get('module', ''))
+            if sql_data:
+                logger.warning(f'llm智能改写sql时间类型={type(sql_data)}结果={sql_data}')
+                bi_data['sql'] = sql_data
+            else:
+                logger.warning(f'llm智能改写sql时间错误')
+
+        # 判断是否需要执行sql并把结果加入msg中
+        if bi_data.get('sql_execute') in ['t'] and bi_data.get('sql'):
+            msg_bi = f'根据用户的提问“{q_text}”，执行了用户配置的sql查询语句，执行后的结果如下：\n'
+            # 遍历sql配置数据执行sql命令
+            for s in bi_data.get('sql', []):
+                # 获取db_id，然后拿到db的连接配置数据
+                logger.warning(f'bi_sql={s}')
+                db_data = get_zydict('db', s.get('db_id', ''))
+                logger.warning(f'db_data={db_data}')
+                if db_data:
+                    # 执行sql查询数据
+                    db_result = sa.sa_sql_query(db_data.get('db_url', ''), s.get('sql', ''), timeout=db_data.get('timeout', 120))
+                    logger.warning(f'bi_sql查询结果={db_result}')
+                    if db_result.get('code') in [200]:
+                        msg_bi = msg_bi+f'查询主题：{s.get("text", "")}，\nsql: {s.get('sql', '')}，\n执行后的结果: {db_result.get('data', '')}\n'
+                        s['data'] = db_result.get('data', '')
+                    else:
+                        msg_bi = msg_bi+f'查询主题：{s.get("text", "")}，\nsql: {s.get("sql", "")}，执行后的结果: {db_result.get('msg', '')}\n'
+                        s['data'] = db_result.get('msg', '')
+                    # 把执行后的格式化结果加到json_msg中
+                    bi_sql_json += [s]
+
+
+        # 判断是否需要把数据可视化图表要求加到msg中
+        if bi_data.get('chart') and bi_data.get('sql'):
+             pass
+
+        # 判断是否需要表配置中的内容加到msg中
+        if bi_data.get('table'):
+             pass
+
+        logger.warning(f'智能体数据Bi处理结果={msg_bi}')
+        # 返回结果
+        return {"role": "system", "content": msg_bi}, bi_sql_json
+    except Exception as e:
+        logger.error(f"智能体数据Bi处理错误: {e}")
+        logger.error(traceback.format_exc())
+        return '', ''
+
 
 
 '''work agent工作数据组合函数'''
@@ -153,6 +398,24 @@ async def agent_work(q_data):
                             logger.error(f"文件知识搜索错误: {e2}")
                             logger.error(traceback.format_exc())
 
+                # bi数据处理
+                bi_data, bi_sql_json = agent_bi(q_data,agent_data.get('appid', ''))
+
+                # db_id 数据源配置数据处理，获取数据链接配置，然后连接数据源，拿到对应的数据库结构
+                db_system = ''
+                if q_data.get('db_id'):
+                    db_data = get_zydict('db', q_data.get('db_id', ''))
+                    if db_data:
+                        db_schema = sa.export_db_schema(db_data.get('db_url', ''))
+                        if type(db_schema) in [str]:
+                            logger.warning(f'数据库结构获取失败={db_schema}')
+                        else:
+                            logger.warning(f'数据库结构获取成功')
+                            # 从结果中获取数据库结构的ddl
+                            for d in db_schema['tables']:
+                                if db_schema['tables'].get(d, {}).get('ddl'):
+                                    db_system = db_system+str(db_schema['tables'][d].get('ddl', ''))+'\n\n'
+
                 # 获取大模型LLM配置数据
                 llmdata = get_zydict('llm', agent.get('llm', ''))
 
@@ -165,6 +428,10 @@ async def agent_work(q_data):
                     msg.append({'role': 'system', 'content': agent.get('context', '')})
                 if filetext:  # 增加文件内容到msg中
                     msg.append({'role': 'system', 'content': f'文件内容：{filetext}'})
+                if bi_data:  # 添加bi数据到msg中
+                    msg.append(bi_data)
+                if db_system:  # 添加数据库结构到msg中
+                    msg.append({'role': 'system', 'content': f'数据库结构：{db_system}'})
 
                 '''把初始化agent数据存到redis，便于后面对话使用'''
                 r_msg = copy.deepcopy(msg)
@@ -233,6 +500,9 @@ async def agent_work(q_data):
                     p_msg = {'role': 'assistant', 'content': agent.get('prologue', '')}
                     msg.append(p_msg)  # 添加开场白到主msg中
                     this_msg.append(p_msg)  # 添加开场白到本次msg中
+                # 增加本次bi数据处理结果到this_msg中
+                if bi_data:  # 添加bi数据到this_msg中
+                    this_msg.append(bi_data)
 
                 #  增加本次问题到msg中
                 q_msg = q_data.get('msg', [])[-1]
@@ -260,6 +530,8 @@ async def agent_work(q_data):
                     'stream': agent.get('stream', True),
                     'this_msg': this_msg,
                     'session_data': session_data,
+                    'bi_data': bi_data,
+                    'bi_sql_json': bi_sql_json,
                 }
                 # 返回数据
                 return rdata
@@ -273,7 +545,9 @@ async def agent_work(q_data):
                 logger.warning(f"agentid与历史使用不一致，请检查agentid：{session_data.get("agentid", '')} != {q_data.get("agentid", '')}")
                 return {}
             '''使用agentid拿到智能体配置数据'''
-            agent = get_agent(q_data.get('agentid', '')).get('data', {})
+            agent_data = get_agent(q_data.get('agentid', {}))
+            agent = agent_data.get('data', {})
+            # agent = get_agent(q_data.get('agentid', '')).get('data', {})
             if agent:
                 ragtext = '空'
                 q_text = q_data.get('msg', [])[-1].get('content', '')  # 拿到本次的问题
@@ -288,6 +562,9 @@ async def agent_work(q_data):
                 # 网页搜索
                 if agent.get('website', ''):
                     logger.warning(f'用户请求网页搜索')
+
+                # bi数据处理
+                bi_data, bi_sql_json = agent_bi(q_data,agent_data.get('appid', ''))
 
                 # 获取大模型LLM配置数据
                 llmdata = get_zydict('llm', agent.get('llm', ''))
@@ -329,6 +606,10 @@ async def agent_work(q_data):
                     p_msg = {'role': 'assistant', 'content': agent.get('prologue', '')}
                     msg.append(p_msg)  # 添加开场白到主msg中
                     this_msg.append(p_msg)  # 添加开场白到本次msg中
+                # 增加bi数据到msg中
+                if bi_data:
+                    msg.append(bi_data)
+                    this_msg.append(bi_data)
 
                 # msg.extend(q_data.get('msg', []))  # 增加本次问题列表到msg中
                 #  增加本次问题到msg中
@@ -350,6 +631,8 @@ async def agent_work(q_data):
                 rdata['this_msg'] = this_msg  # 增加本轮msg
                 rdata['msg'] = rdata['msg'] + msg
                 rdata['session_data'] = session_data
+                rdata['bi_data'] = bi_data
+                rdata['bi_sql_json'] = bi_sql_json
                 # 返回数据
                 return rdata
             else:
@@ -379,11 +662,33 @@ async def agent_stream(request: Request, data):
         workdata = await agent_work(data)  # agent工作数据组合
         if workdata:
             logger.warning(f'workdta={workdata}')
+
             # 初始化本轮对话数据
             nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
             this_data = {'start_time': nowtime, 'end_time': '', 'msg': workdata.get('this_msg', []),
                          'custom_data': data.get('custom_data', {}), 'log': []}
             llm_msg = {'role': 'assistant', 'content': ''}
+
+            # 判断bi_sql_json是否有数据，如果有，则先返回bi的原始数据，然后再调llm
+            if workdata.get('bi_sql_json'):
+                chunk0 = f'根据本次的提问，执行了已配置的sql查询语句，执行后的结果如下：<br/><br/>'
+                yield chunk0
+                llm_msg['content'] = llm_msg['content'] + str(f'{chunk0}')
+                for j in workdata.get('bi_sql_json', []):
+                    if j:  # 加粗字体 <b>知识内容：</b>
+                        chunk1 = str(f"<b>查询主题：</b> {j.get("text", "")}，<br/><br/><b>sql:</b> '''{j.get("sql", "")}''' <br/><br/><b>执行后的结果:</b> <br/>")
+                        yield chunk1
+                        chunk2 = '\n\n'
+                        yield chunk2
+                        chunk3 = data2md_table(j.get('data'))
+                        yield chunk3
+                        chunk4 = '\n\n<br/><br/>\n\n'
+                        yield chunk4
+                        llm_msg['content'] = llm_msg['content'] + str(f'{chunk1}{chunk2}{chunk3}{chunk4}')
+                        # bi_chunk = str(workdata.get('bi_data', {}).get('content', ''))
+                        # # this_data['log'] = this_data['log'] + [bi_chunk]
+                        # yield bi_chunk
+
             # 调用大模型
             llmsdk = workdata.get('sdk', '')
             if llmsdk in ['openai']:

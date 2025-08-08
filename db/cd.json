@@ -213,7 +213,7 @@
             },
             {
                 "path": "chatbi",
-                "component": "agent/chatbi/index",
+                "component": "data/chatbi/index",
                 "name": "chatbi",
                 "meta": {
                     "title": "智能ChatBi",

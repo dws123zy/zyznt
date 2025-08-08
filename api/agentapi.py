@@ -41,6 +41,8 @@ class agentpublicarg(BaseModel):  # 公共参数，所有接口必传
     # data: dict = Field({}, description="自定义数据")
     fileid: list = Field([], description="文件id列表")
     custom_data:  dict = Field({}, description="自定义数据")
+    bi_data: dict = Field({}, description="Bi数据模型配置数据")
+    db_id: str = Field('', description="数据源配置id")
 
 
 '''******agent智能体运行******'''
@@ -58,6 +60,9 @@ async def agent_stream_post(request: Request, mydata: agentpublicarg):
             logger.warning(f'apikey验证失败')
             return {"msg": "apikey或agent验证失败", "code": "403", "data": ""}
 
+        # 测试bi用
+        # if data_dict.get("agentid") in ['agent1751263681613']:
+        #     data_dict['bi_data'] = {"query_text": "帮我查下今年5月保险产品的销售数量和金额", "sql_time": "t", "sql_execute": "t","sql": [{"text": "查询某个时间段的利润", "db_id": "db1001", "sql": "SELECT insurance_products AS 保险产品,COUNT(*) AS 销售数量,SUM(Insurance_costs) AS 总销售金额 FROM Insurance_clients WHERE Insurance_Date >= '2025-05-01' AND Insurance_Date <= '2025-05-31' GROUP BY insurance_products ORDER BY 总销售金额 DESC;"}]}
         # 判断是否流式返回
         if data_dict.get('stream', False):
             logger.warning(f'流式返回')

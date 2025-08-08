@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 aa = {
   "user": "dws@zy",
   "appid": "zy001",
@@ -1338,6 +1340,213 @@ print(url)  # 输出相同结果
 dds = {'columns': [{'name': 'id', 'type': 'INTEGER', 'primary_key': True, 'nullable': False, 'default': None, 'autoincrement': True, 'comment': '', 'label': ''}, {'name': 'appid', 'type': 'VARCHAR(20) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': 'appid', 'label': 'appid'}, {'name': 'type', 'type': 'VARCHAR(20) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '智能体类型，agent、flow', 'label': '智能体类型，agent、flow'}, {'name': 'name', 'type': 'VARCHAR(200) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '智能体名称', 'label': '智能体名称'}, {'name': 'agentid', 'type': 'VARCHAR(20) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '智能体id', 'label': '智能体id'}, {'name': 'start_time', 'type': 'VARCHAR(20) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '开始时间', 'label': '开始时间'}, {'name': 'last_time', 'type': 'VARCHAR(20) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '最后对话时间', 'label': '最后对话时间'}, {'name': 'user', 'type': 'VARCHAR(50) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '创建人', 'label': '创建人'}, {'name': 'department', 'type': 'VARCHAR(50) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '部门', 'label': '部门'}, {'name': 'session', 'type': 'VARCHAR(50) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '对话id，唯一', 'label': '对话id，唯一'}, {'name': 'tokens', 'type': 'INTEGER', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': False, 'comment': '消耗的tokens数量', 'label': '消耗的tokens数量'}, {'name': 'data', 'type': 'TEXT COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '对话和运行数据,以json格式存储', 'label': '对话和运行数据,以json格式存储'}, {'name': 'title', 'type': 'VARCHAR(80) COLLATE "utf8mb4_unicode_ci"', 'primary_key': False, 'nullable': True, 'default': None, 'autoincrement': 'auto', 'comment': '此轮对话标题，取第一个问题的前60个字符', 'label': '此轮对话标题，取第一个问题的前60个字符'}], 'table_label': '智能体对话记录表', 'table_name': 'agent_record', 'indexes': [{'name': 'idx_session', 'columns': ['session'], 'unique': False, 'type': 'index'}, {'name': 'idx_time_appid_user_agentid', 'columns': ['start_time', 'appid', 'user', 'agentid'], 'unique': False, 'type': 'index'}, {'name': 'user', 'columns': ['user'], 'unique': False, 'type': 'index'}], 'foreign_keys': [], 'relationships': [{'name': 'users_rel', 'type': 'one-to-many', 'target_model': 'user', 'local_columns': ['user'], 'remote_columns': ['user']}], 'comment': '智能体对话记录表', 'ddl': "\nCREATE TABLE agent_record (\n\tid INTEGER(11) NOT NULL AUTO_INCREMENT, \n\tappid VARCHAR(20) COLLATE utf8mb4_unicode_ci COMMENT 'appid' DEFAULT '', \n\ttype VARCHAR(20) COLLATE utf8mb4_unicode_ci COMMENT '智能体类型，agent、flow' DEFAULT 'agent', \n\tname VARCHAR(200) COLLATE utf8mb4_unicode_ci COMMENT '智能体名称' DEFAULT '', \n\tagentid VARCHAR(20) COLLATE utf8mb4_unicode_ci COMMENT '智能体id' DEFAULT '', \n\tstart_time VARCHAR(20) COLLATE utf8mb4_unicode_ci COMMENT '开始时间' DEFAULT '', \n\tlast_time VARCHAR(20) COLLATE utf8mb4_unicode_ci COMMENT '最后对话时间' DEFAULT '', \n\tuser VARCHAR(50) COLLATE utf8mb4_unicode_ci COMMENT '创建人' DEFAULT '', \n\tdepartment VARCHAR(50) COLLATE utf8mb4_unicode_ci COMMENT '部门' DEFAULT '', \n\tsession VARCHAR(50) COLLATE utf8mb4_unicode_ci COMMENT '对话id，唯一' DEFAULT '', \n\ttokens INTEGER(11) COMMENT '消耗的tokens数量' DEFAULT 0, \n\tdata TEXT COLLATE utf8mb4_unicode_ci COMMENT '对话和运行数据,以json格式存储' DEFAULT '{}', \n\ttitle VARCHAR(80) COLLATE utf8mb4_unicode_ci COMMENT '此轮对话标题，取第一个问题的前60个字符' DEFAULT '', \n\tPRIMARY KEY (id)\n)COLLATE utf8mb4_unicode_ci ENGINE=InnoDB COMMENT='智能体对话记录表' DEFAULT CHARSET=utf8mb4\n\n"}
 
 print(dds)
+
+
+
+sqldemo = {"query_text": "帮我查下上个月的利润是多少", "sql_time": "t", "sql_execute": "t",
+           "sql": [{"text": "查询某个时间段的利润", "db_id": "db1001", "sql": "SELECT SUM(profit) AS total_profit FROM Insurance_clients WHERE Insurance_Date >= DATE_FORMAT(CURDATE(), '%Y-06-01') AND Insurance_Date <= LAST_DAY(DATE_FORMAT(CURDATE(), '%Y-06-01'))"}]}
+
+
+print(sqldemo)
+
+print("数据转换成markdown格式")
+
+# data = [{"name": "张三", "年龄": "16"}, {"name": "王六", "年龄": "62"}]
+data2 = [{'保险产品': '儿童福享康健重大疾病保险', '销售数量': 17, '总销售金额': Decimal('147261.690')}, {'保险产品': '招商信诺百万守护两全保险', '销售数量': 1, '总销售金额': Decimal('12740.850')}]
+
+# from decimal import Decimal
+# import json
+# from datetime import date, datetime
+#
+#
+# # 自定义 JSON 编码器
+# class UniversalEncoder(json.JSONEncoder):
+#   def default(self, obj):
+#     # 处理 Decimal 类型
+#     if isinstance(obj, Decimal):
+#       return float(obj)
+#
+#     # 处理日期时间类型
+#     if isinstance(obj, (datetime, date)):
+#       return obj.isoformat()
+#
+#     # 处理其他无法序列化的类型（如函数）
+#     try:
+#       return super().default(obj)
+#     except TypeError:
+#       return str(obj)  # 转换为字符串表示
+
+
+# # 示例数据（包含 Decimal、datetime 和函数）
+# data3 = [
+#   {'保险产品': '儿童福享康健重大疾病保险',
+#    '销售数量': 17,
+#    '总销售金额': Decimal('147261.690'),
+#    '更新时间': datetime(2023, 5, 10, 14, 30)},
+#
+#   {'保险产品': '招商信诺百万守护两全保险',
+#    '销售数量': 1,
+#    '总销售金额': Decimal('12740.850'),
+#    '特殊函数': lambda x: x * 2}  # 无法序列化的函数
+# ]
+#
+# # 转换为 JSON 字符串
+# json_str = json.dumps(data3,
+#                       cls=UniversalEncoder,
+#                       ensure_ascii=False,  # 支持中文
+#                       indent=2)  # 美化输出
+#
+# print(json_str)
+#
+# data2 = json.loads(json_str)
+# print(data2)
+#
+#
+# data = [{"name": "张三", "年龄": 16}, {"name": "王六", "年龄": 62}]  # 注意年龄是整数
+
+# 生成表头
+header = "| " + " | ".join(data2[0].keys()) + " |\n"
+separator = "| " + " | ".join(["---"] * len(data2[0])) + " |\n"
+
+# 生成数据行 - 修复点在这里
+rows = ""
+for item in data2:
+    # 确保所有值转换为字符串
+    rows += "| " + " | ".join(str(value) for value in item.values()) + " |\n"
+
+markdown_table = header + separator + rows
+print(markdown_table)
+
+
+def smart_truncate(text, max_length=20):
+  """智能截断文本，尽量在标点处截断"""
+  if len(text) <= max_length:
+    return text
+
+  # 尝试在标点处截断（逗号、句号等）
+  truncated = text[:max_length - 3]
+  for punct in ['，', '。', ',', '.', '；', ';']:
+    if punct in truncated:
+      last_punct = truncated.rfind(punct)
+      if last_punct > max_length // 2:  # 确保不会截得太短
+        return truncated[:last_punct + 1] + "..."
+  return truncated + "..."
+
+
+def generate_markdown_table(data, alignments=None, max_col_width=20):
+  """
+  生成优化的Markdown表格
+
+  参数:
+  data: 数据列表
+  alignments: 每列对齐方式，如['left', 'center', 'left']
+  max_col_width: 最大列宽
+  """
+  if not data:
+    return ""
+
+  headers = list(data[0].keys())
+  num_columns = len(headers)
+  alignments = alignments or ['left'] * num_columns
+
+  # 计算每列最大显示宽度（考虑中文）
+  col_widths = {}
+  for i, header in enumerate(headers):
+    # 中文每个字符宽度为2
+    max_width = len(header) * 2 if any('\u4e00' <= char <= '\u9fff' for char in header) else len(header)
+
+    for item in data:
+      value = str(item.get(header, ""))
+      display_value = smart_truncate(value, max_col_width)
+
+      # 计算显示宽度（中文算2个字符）
+      display_width = sum(2 if '\u4e00' <= char <= '\u9fff' else 1 for char in display_value)
+
+      if display_width > max_width:
+        max_width = display_width
+
+    # 确保最小宽度为4
+    col_widths[header] = max(4, max_width)
+
+  # 生成表头
+  header_cells = []
+  for i, header in enumerate(headers):
+    # 中文每个字符宽度为2，需要特殊处理填充
+    chinese_count = sum(1 for char in header if '\u4e00' <= char <= '\u9fff')
+    non_chinese_count = len(header) - chinese_count
+    total_width = chinese_count * 2 + non_chinese_count
+
+    # 计算需要填充的空格数
+    padding = col_widths[header] - total_width
+    if padding > 0:
+      padded_header = header + ' ' * padding
+    else:
+      padded_header = header
+
+    header_cells.append(padded_header)
+
+  header_row = "| " + " | ".join(header_cells) + " |"
+
+  # 生成分隔行
+  separator_cells = []
+  for i, header in enumerate(headers):
+    align = alignments[i]
+    width = col_widths[header]
+
+    if align == 'left':
+      separator = ":" + "-" * (width - 1)
+    elif align == 'center':
+      separator = ":" + "-" * (width - 2) + ":"
+    elif align == 'right':
+      separator = "-" * (width - 1) + ":"
+    else:
+      separator = "-" * width
+
+    separator_cells.append(separator)
+
+  separator_row = "| " + " | ".join(separator_cells) + " |"
+
+  # 生成数据行
+  data_rows = []
+  for item in data:
+    row_cells = []
+    for i, header in enumerate(headers):
+      raw_value = str(item.get(header, ""))
+      display_value = smart_truncate(raw_value, max_col_width)
+
+      # 计算显示宽度（中文算2个字符）
+      chinese_count = sum(1 for char in display_value if '\u4e00' <= char <= '\u9fff')
+      non_chinese_count = len(display_value) - chinese_count
+      total_width = chinese_count * 2 + non_chinese_count
+
+      # 计算需要填充的空格数
+      padding = col_widths[header] - total_width
+      if padding > 0:
+        padded_value = display_value + ' ' * padding
+      else:
+        padded_value = display_value
+
+      row_cells.append(padded_value)
+
+    data_rows.append("| " + " | ".join(row_cells) + " |")
+
+  return "\n".join([header_row, separator_row] + data_rows)
+
+
+# 使用示例
+data = [
+  {"name": "张三", "年龄": 16, "描述": "这是一段非常长的描述文本，需要被截断以保持表格整洁"},
+  {"name": "李四", "年龄": 25, "描述": "短描述"},
+  {"name": "王五", "年龄": 42, "描述": "中等长度的描述文本"}
+]
+
+# 指定每列对齐方式：姓名左对齐、年龄居中、描述左对齐
+table = generate_markdown_table(data)
+print(table)
+
+
+
+
 
 
 

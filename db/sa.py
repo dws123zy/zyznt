@@ -238,7 +238,22 @@ def generate_relationships(base, table_name):
         return f"获取映射关系数据失败:{str(e)}"
 
 
+'''执行sql查询语句'''
 
-
+def sa_sql_query(db_url, sql, timeout=120):
+    """执行sql查询语句"""
+    try:
+        # 创建数据库连接
+        engine = create_engine(db_url, connect_args={"connect_timeout": int(timeout)})
+        rdata = []
+        # 执行查询
+        with engine.connect() as conn:
+            result = conn.execute(text(sql))
+            rdata = [dict(row) for row in result.mappings()]
+        # 返回查询结果
+        return {"code": 200, "data":rdata}
+    except Exception as e:
+        logger.error(f'执行sql查询语句失败: {e}，{traceback.format_exc()}')
+        return {"code": 500, "msg":f'执行sql语句失败: {e}'}
 
 

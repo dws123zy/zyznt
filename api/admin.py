@@ -60,6 +60,9 @@ def report_get(mydata: report):
             logger.warning(f'token验证失败')
             return {"msg": "token或user验证失败", "code": "403", "data": ""}
         data2 = data_dict.get('data', {})
+        # 检查检索项中是否有appid，如果没有，则使用当前user的appid
+        if not data2.get('filter', {}).get('appid', ''):
+            data2['filter']['appid'] = data_dict.get('appid', '')
         # 处理cmd，返回对应的检索项数据
         cmd = data2.get('cmd', '')
         if cmd in ['7day']:  # 我的统计
@@ -86,6 +89,8 @@ def get_7day(data2):
     try:
         cmd = data2.get('cmd', '')
         sqlcmd = get_zydict('report', cmd).get('sqla', '')
+        # 替换appid
+        sqlcmd = sqlcmd.replace('zy001', data2.get('filter', {}).get('appid', 'zy001'))
         logger.warning(f'sqlcmd={sqlcmd}, cmd={cmd}')
         datac = my.msqlc(sqlcmd)  # 查询数据
         logger.warning(f'get_7day数据统计={datac}')

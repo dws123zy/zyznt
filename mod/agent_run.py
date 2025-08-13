@@ -108,6 +108,11 @@ sql_example2 = json.dumps(
     ensure_ascii=False
 )
 
+sql_example3 = json.dumps(
+    [{"text":"查询代理人陈静月度的业绩和佣金", "db_id": "db1001", "sql": "SELECT agent_name AS `代理人姓名`,COUNT(DISTINCT policy_number) AS `保单数量`,SUM(total_premium) AS `总业绩`,SUM(commission_amount) AS `总佣金` FROM policy_commissions WHERE agent_name = '陈静' AND application_date BETWEEN '2025-07-01' AND '2025-07-31' GROUP BY agent_name;"}],
+    ensure_ascii=False
+)
+
 
 sql_json_msg=[{
         "role": "system",
@@ -118,7 +123,11 @@ sql_json_msg=[{
 
         Q：用户的文本内容是："帮我查询这个月的代理人的业绩数据"， 现在的时间是："2025-08-23 16:01:00"，原始的SQL查询数据是：[{"text":"查询月度保单数据", "db_id": "db1001", "sql": "SELECT * FROM insurance WHERE time >= '2025-01-01 00:00:00' AND time < '2025-02-01 00:00:00';"},
      {"text":"查询月度保险代理人数据", "db_id": "db1001", "sql": "SELECT * FROM agent WHERE time >= '2025-01-01 00:00:00' AND time < '2025-02-01 00:00:00';"}]
-        A：%s""" % (sql_example1, sql_example2)
+        A：%s
+        
+        Q：文本内容是："查询代理人陈静上个月的业绩和佣金"， 现在的时间是："2025-08-12 09:01:00"，原始的SQL查询数据是：'''[{"text":"查询代理人陈静月度的业绩和佣金", "db_id": "db1001", "sql": "SELECT agent_name AS `代理人姓名`,COUNT(DISTINCT policy_number) AS `保单数量`,SUM(total_premium) AS `总业绩`,SUM(commission_amount) AS `总佣金` FROM policy_commissions WHERE agent_name = '张三' AND application_date BETWEEN '2025-06-01' AND '2025-06-30' GROUP BY agent_name;"}]'''
+        A：%s
+        """ % (sql_example1, sql_example2, sql_example3)
     }]
 
 
@@ -284,22 +293,22 @@ def agent_bi(q_data, appid):
         bi_sql_json = []
         bi_data = q_data.get('bi_data', {})
         if not bi_data:
-            return ''
+            return '', ''
         # 判断是否需要llm智能改写sql中的时间
         q_text = str(q_data.get('msg', [])[-1].get('content', ''))  # 获取用户输入的文本内容
         if bi_data.get('sql_time') in ['t'] and bi_data.get('sql'):
             nowtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
             # 调用格式化输出大模型根据用户的文件内容分析，并改写sql中的时间
-            msg_text = f"""请根据提供的文本内容和现在的时间，计算出用户查询需要的具体时间或时间段，然后改写为SQL查询语句中的时间，
-            然后按原格式并返回改写后SQL查询数据。输出为JSON格式。如果无需改时间，直接返回原数据即可。文本内容是："{q_text}"，现在时间是："{nowtime}"，原始的SQL查询数据是：{bi_data.get('sql')}"""
+            msg_text = f"""请根据提供的文本内容和现在的时间，分析出用户查询需要的具体时间、时间段、季度、人名、地区、区域、产品名等，然后改写SQL查询语句中对应的内容，
+            然后按原格式并返回改写后SQL查询数据。输出为JSON格式。如果无需修改sql内容，直接返回原数据即可。文本内容是："{q_text}"，现在时间是："{nowtime}"，原始的SQL查询数据是：{bi_data.get('sql')}"""
             msg = sql_json_msg+[{"role": "user", "content": msg_text}]
             llm_data = get_zydict('llm',f'llm_json_{appid}')
             sql_data = openai_llm_json(msg, llm_data.get('apikey', ''), llm_data.get('url', ''), llm_data.get('module', ''))
             if sql_data:
-                logger.warning(f'llm智能改写sql时间类型={type(sql_data)}结果={sql_data}')
+                logger.warning(f'llm智能改写sql={type(sql_data)}结果={sql_data}')
                 bi_data['sql'] = sql_data
             else:
-                logger.warning(f'llm智能改写sql时间错误')
+                logger.warning(f'llm智能改写sql错误')
 
         # 判断是否需要执行sql并把结果加入msg中
         if bi_data.get('sql_execute') in ['t'] and bi_data.get('sql'):
@@ -556,7 +565,7 @@ async def agent_work(q_data):
                     if q_data.get('msg', []):
                         if q_text in ['你好', '您好', '你叫什么名字', '你是谁', 'hi', 'hello']:
                             logger.warning(f'用户常规性问候，无需查询rag')
-                            return ''
+                            # return ''
                         else:
                             ragtext = agent_rag_search({'text': q_text, 'rag': agent.get('rag', '')})
                 # 网页搜索

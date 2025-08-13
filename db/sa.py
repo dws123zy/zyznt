@@ -11,6 +11,7 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy.schema import CreateTable, CreateIndex, ForeignKeyConstraint
 from sqlalchemy.dialects import postgresql, mysql, sqlite
 from sqlalchemy.types import TypeDecorator
+import re
 
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import RelationshipProperty  # 导入正确的类型
@@ -238,6 +239,19 @@ def generate_relationships(base, table_name):
         return f"获取映射关系数据失败:{str(e)}"
 
 
+'''sql去除分页和;，用于生成统计总条数的sql'''
+
+def remove_limit_clause(sql):
+    """移除SQL中的LIMIT/OFFSET子句（使用正则表达式）和;"""
+    try:
+        sql2 = sql.rstrip(';')
+        sql3 = sql.rstrip(';\n')
+        return re.sub(r"\s(LIMIT \d+|OFFSET \d+)(\s*(,|OFFSET)\s*\d+)*\s*;?$", "", sql3, flags=re.IGNORECASE)
+    except Exception as e:
+        logger.warning(f'sql去除分页和;失败: {e}，{traceback.format_exc()}')
+        return sql.rstrip(';')
+
+
 '''执行sql查询语句'''
 
 def sa_sql_query(db_url, sql, timeout=120):
@@ -246,14 +260,26 @@ def sa_sql_query(db_url, sql, timeout=120):
         # 创建数据库连接
         engine = create_engine(db_url, connect_args={"connect_timeout": int(timeout)})
         rdata = []
+        total_count = 0
+
+        # 1. 先查询总条数
+        sql_t = remove_limit_clause(sql)
+        count_sql = text(f"SELECT COUNT(*) FROM ({sql_t}) AS subquery;")
+        logger.warning(f"coun_sql={count_sql}")
+        # with engine.connect() as connection:
+        #     # 获取总条数（直接返回标量结果）
+        #     total_count = connection.scalar(count_sql)
+
+
         # 执行查询
         with engine.connect() as conn:
+            total_count = conn.scalar(count_sql)
             result = conn.execute(text(sql))
             rdata = [dict(row) for row in result.mappings()]
         # 返回查询结果
-        return {"code": 200, "data":rdata}
+        return {"code": 200, "data":rdata, 'total': total_count}
     except Exception as e:
         logger.error(f'执行sql查询语句失败: {e}，{traceback.format_exc()}')
-        return {"code": 500, "msg":f'执行sql语句失败: {e}'}
+        return {"code": 500, "msg":f'执行sql语句失败: {e}', 'total': 0}
 
 

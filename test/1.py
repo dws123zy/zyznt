@@ -1547,11 +1547,16 @@ print(table)
 
 
 
+import re
 
+def remove_limit_clause(sql):
+    """移除SQL中的LIMIT/OFFSET子句（使用正则表达式）"""
+    sql = sql.rstrip(';')
+    return re.sub(r"\s(LIMIT \d+|OFFSET \d+)(\s*(,|OFFSET)\s*\d+)*\s*;?$", "", sql, flags=re.IGNORECASE)
 
-
-
-
+li = remove_limit_clause("SELECT insurance_products AS 保险产品,COUNT(*) AS 销售数量,SUM(Insurance_costs) AS 总销售金额 FROM Insurance_clients WHERE Insurance_Date >= '2025-05-01' AND Insurance_Date <= '2025-05-31' GROUP BY insurance_products ORDER BY 总销售金额 DESC;")
+# li = li.rstrip(';')
+print(f"li={li}")
 
 
 

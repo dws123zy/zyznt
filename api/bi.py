@@ -11,7 +11,7 @@ import random
 import string
 
 # 本地模块
-from db.sa import db_connection, export_db_schema
+from db.sa import db_connection, export_db_schema, sa_sql_query
 from data.data import tokenac, get_zydict
 from db import my
 
@@ -121,6 +121,66 @@ def get_db_schema(mydata: biconnectarg):
 
     except Exception as e:
         logger.error(f"db url 连接检测接口错误: {e}")
+        logger.error(traceback.format_exc())
+        return {"msg": "error", "code": "501", "data": ""}
+
+''''sql语句执行模型'''
+
+class sqldataarg(BaseModel):  # 查询时data中的标准参数
+    sql: Any = Field(frozen=True, description="要执行的sql语句, 格式示例：[{}]")
+    limit: int = Field(200, description="每页显示的数量")
+    page: int = Field(1, description="页码，第几页")
+
+
+class sqlzharg(publicarg):  # 通用查询类组合，公共+data
+    data: sqldataarg
+
+
+'''执行sql语句'''
+
+@router.post("/db/sql_get_data", tags=["智能Bi-SQL语句执行接口"])
+def sql_get_db_data(mydata: sqlzharg):
+    """执行sql语句"""
+    try:
+        data_dict = mydata.model_dump()
+        logger.warning(f'sql_get_db_data收到的请求数据={data_dict}')
+        # 验证token、user
+        if not tokenac(data_dict.get('token', ''), data_dict.get('user', '')):
+            logger.warning(f'token验证失败')
+            return {"msg": "token或user验证失败", "code": "403", "data": ""}
+        db_data = data_dict.get('data', {})
+        limit = db_data.get('limit', 200)
+        page = db_data.get('page', 1)
+        # 获取db 连接的用的模块
+        sql_list = db_data.get('sql', [])
+        rdata = []
+        for s in sql_list:
+            # 获取db_id，然后拿到db的连接配置数据
+            db_data = get_zydict('db', s.get('db_id', ''))
+            db_mod = db_data.get('db_mod', '')
+            # 根据模块调用对应的模块检测db url连接
+            if db_mod in ['SQLAlchemy', 'sa', 'sqlalchemy']:  # SQLAlchemy
+                data = sa_sql_query(db_data.get('db_url', ''), s.get('sql', ''),timeout=db_data.get('timeout', 30))
+                if data.get('code') in [200, '200']:
+                    logger.info(f"执行sql语句成功")
+                    s['data'] = data.get('data')
+                    s['code'] = 200
+                    s['limit'] = limit
+                    s['page'] = page
+                    s['nub'] = data.get('total', 0)
+                    rdata.append(s)
+                else:
+                    logger.info(f"执行sql语句失败")
+                    s['data'] = data.get('msg')
+                    s['code'] = 500
+                    rdata.append(s)
+            else:
+                logger.warning(f'db_mod参数错误')
+
+        return {"msg": "数据查询成功", "code": "200", "data": rdata}
+
+    except Exception as e:
+        logger.error(f"sql_get_db_data执行sql语句错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 

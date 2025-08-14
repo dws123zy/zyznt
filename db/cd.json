@@ -199,19 +199,6 @@
         },
         "children": [
             {
-                "path": "ai_data",
-                "component": "data/ai_data/index",
-                "name": "ai_data",
-                "meta": {
-                    "title": "智能数据BI",
-                    "icon": "el-icon-User",
-                    "hidden": false,
-                    "keepAlive": true,
-                    "alwaysShow": false,
-                    "params": ""
-                }
-            },
-            {
                 "path": "chatbi",
                 "component": "data/chatbi/index",
                 "name": "chatbi",
@@ -224,13 +211,26 @@
                     "params": ""
                 }
             },
-            {
+			{
                 "path": "graphic",
                 "component": "data/graphic/index",
                 "name": "graphic",
                 "meta": {
                     "title": "数据可视化",
                     "icon": "role",
+                    "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+			{
+                "path": "ai_data",
+                "component": "data/ai_data/index",
+                "name": "ai_data",
+                "meta": {
+                    "title": "智能数据管理",
+                    "icon": "el-icon-User",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -255,7 +255,7 @@
                 "component": "data/db/index",
                 "name": "db",
                 "meta": {
-                    "title": "数据源",
+                    "title": "数据源管理",
                     "icon": "tree",
                     "hidden": false,
                     "keepAlive": true,

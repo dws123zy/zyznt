@@ -101,7 +101,7 @@ class cxzharg(publicarg):  # 通用查询类组合，公共+data
 
 '''rag动态检索项查询接口'''
 
-@router.post("/filter/{cmd}", tags=["动态检索项获取接口,'file 文件', 'rag知识库', 'part文本段', agent智能体"])
+@router.post("/filter/{cmd}", tags=["动态检索项获取接口,'file 文件', 'rag知识库', 'part文本段', agent智能体，query智能数据"])
 def getfilter(mydata: publicarg, cmd: str):
     try:
         data_dict = mydata.model_dump()
@@ -114,7 +114,7 @@ def getfilter(mydata: publicarg, cmd: str):
         if cmd in ['file', 'rag', 'part', 'agent']:  # 按用户和cmd获取检索项
             filterdata = get_filter(cmd, data_dict.get('user', ''))
             return {"msg": "success", "code": "200", "data": {"filter": filterdata}}
-        elif cmd in ['cs']:  # 按cmd获取检索项
+        elif cmd in ['cs', 'query']:  # 按cmd获取检索项
             filterdata = get_filter(cmd)
             return {"msg": "success", "code": "200", "data": {"filter": filterdata}}
         else:  # cmd错误，无此检索项

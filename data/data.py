@@ -253,9 +253,11 @@ def logonac(data):
                 users[data.get('user')]['expire'] = expire
                 sqlcmd = f"update user set token='{token}',expire={expire} where user='{data.get('user')}'"
                 msqlzsg(sqlcmd)
+                # 获取用户名
+                name = users[data.get('user')].get('name', '')
                 # 返回token
                 return {'code': '200', 'msg': '登录成功', 'data': {'token': token, 'cd': zyzntcd, 'appid': appid,
-                                                                   'url': imgurl}}
+                                                                   'url': imgurl, 'name': name}}
             else:
                 return {'code': '403', 'msg': '密码错误'}
         else:

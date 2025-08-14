@@ -238,11 +238,11 @@ class datamodarg(publicarg):  # 通用增加和修改组合，公共+data
 #         return {"msg": "error", "code": "501", "data": ""}
 
 
-'''数据集查询接口'''
+'''智能Bi数据集查询接口'''
 
 @router.post("/dataset/get", tags=["智能Bi数据集查询"])
 def dataset_get(mydata: cxzharg):
-    """数据集查询"""
+    """智能Bi数据集查询"""
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'data_get_set收到的请求数据={data_dict}')
@@ -277,11 +277,11 @@ def dataset_get(mydata: cxzharg):
         return {"msg": "error", "code": "501", "data": ""}
 
 
-'''数据集新增接口'''
+'''智能Bi数据集新增接口'''
 
 @router.post("/dataset/add", tags=["智能Bi数据集新增"])
 def dataset_add(mydata: datamodarg):
-    """数据集新增"""
+    """智能Bi数据集新增"""
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'dataset_add收到的请求数据={data_dict}')
@@ -326,7 +326,7 @@ def dataset_add(mydata: datamodarg):
 
 @router.put("/dataset/update", tags=["智能Bi数据集修改"])
 def dataset_update(mydata: datamodarg):
-    """数据集修改接口"""
+    """智能Bi数据集修改接口"""
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'dataset_update收到的请求数据={data_dict}')
@@ -382,7 +382,7 @@ def dataset_update(mydata: datamodarg):
 
 @router.delete("/dataset/del", tags=["智能Bi数据集删除"])
 def dataset_del(mydata: datamodarg):
-    """数据集删除接口"""
+    """智能Bi数据集删除接口"""
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'dataset_del收到的请求数据={data_dict}')
@@ -416,11 +416,11 @@ def dataset_del(mydata: datamodarg):
 
 
 
-'''智能数据Bi数据查询功能模块'''
+'''智能数据管理功能模块'''
 
 
 
-'''智能数据Bi数据查询通用新增、修改、删除'''
+'''智能数据管理查询通用新增、修改、删除'''
 
 class dataqueryarg3(BaseModel):
     query_id: str = Field('', description="数据查询id,修改删除时必填")
@@ -430,11 +430,11 @@ class dataqueryarg(publicarg):  # 通用增加和修改组合，公共+data
     data: dataqueryarg3
 
 
-'''智能数据Bi数据查询接口'''
+'''智能数据管理查询接口'''
 
-@router.post("/data_query/get", tags=["智能Bi数据查询"])
+@router.post("/data_query/get", tags=["智能数据管理查询"])
 def data_query_get(mydata: cxzharg):
-    """智能Bi数据查询"""
+    """智能数据管理查询"""
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'data_query_get收到的请求数据={data_dict}')
@@ -460,22 +460,22 @@ def data_query_get(mydata: cxzharg):
                 logger.error(f" agent查询时转字典错误: {e}")
                 logger.error(traceback.format_exc())
 
-        # 获取表单数据form
-        # formdata = get_zydict('form', 'agent_form')
+        # 获取表头数据
+        table_head = get_zydict('head', 'query_tb')
 
         return {"msg": "success", "code": "200",
-                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit')}}
+                "data": {"data": datac, "nub": nub, "page": data.get('page'),"limit": data.get('limit'), "tb": table_head}}
     except Exception as e:
         logger.error(f"智能数据Bi数据查询接口错误: {e}")
         logger.error(traceback.format_exc())
         return {"msg": "error", "code": "501", "data": ""}
 
 
-'''智能Bi数据查询新增接口'''
+'''智能数据管理新增接口'''
 
-@router.post("/data_query/add", tags=["智能Bi数据查询新增"])
+@router.post("/data_query/add", tags=["智能数据管理新增"])
 def data_query_add(mydata: dataqueryarg):
-    """智能数据查询新增接口"""
+    """智能数据管理新增接口"""
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'data_query_add收到的请求数据={data_dict}')
@@ -528,11 +528,11 @@ def data_query_add(mydata: dataqueryarg):
         return {"msg": "data error", "code": "501", "data": ""}
 
 
-'''智能Bi数据查询修改接口'''
+'''智能数据管理修改接口'''
 
-@router.put("/data_query/update", tags=["智能Bi数据查询修改"])
+@router.put("/data_query/update", tags=["智能数据管理修改"])
 def data_query_update(mydata: dataqueryarg):
-    """智能数据查询修改接口"""
+    """智能数据管理修改接口"""
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'data_query_update收到的请求数据={data_dict}')
@@ -584,11 +584,11 @@ def data_query_update(mydata: dataqueryarg):
         return {"msg": "error", "code": "501", "data": ""}
 
 
-'''智能Bi数据查询删除接口'''
+'''智能数据管理删除接口'''
 
-@router.delete("/data_query/del", tags=["智能Bi数据查询删除"])
+@router.delete("/data_query/del", tags=["智能数据管理删除"])
 def data_query_del(mydata: dataqueryarg):
-    """智能数据查询删除接口"""
+    """智能数据管理删除接口"""
     try:
         data_dict = mydata.model_dump()
         logger.warning(f'data_query_del收到的请求数据={data_dict}')

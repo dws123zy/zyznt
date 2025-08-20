@@ -362,6 +362,7 @@ def openai_llm_json(msg, apikey, url, mod, tools=None, temperature=0.7):
         # 执行LLM请求
         completion = client.chat.completions.create(
             model=mod,
+            # enable_thinking=False,
             temperature=float(temperature),  # 热度
             messages=msg,  # 消息列表、提示词、上下文
             response_format={"type": "json_object"}
@@ -372,7 +373,7 @@ def openai_llm_json(msg, apikey, url, mod, tools=None, temperature=0.7):
 
         return json_object
     except Exception as e:
-        logger.error({"openai_llm stream错误:": e})
+        logger.error({"openai_llm_json错误:": e})
         logger.error(e)
         logger.error(traceback.format_exc())
         return ''

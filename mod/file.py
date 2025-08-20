@@ -86,14 +86,14 @@ def zyembd(text, embddata):
                     print("请求成功!")
                     rdata = response.json()
                     # print("响应内容:", rdata)  # 将响应内容解析为JSON
-                    return rdata.get('data', '')[0]
+                    return {'code': '200', 'data':rdata.get('data', '')[0]}
                 else:
                     print(f"请求失败，状态码: {response.status_code}")
                     logger.warning(f"错误信息:{response.json()}")
-                    return ''
+                    return {"code": "501", "data": f'文本转向量错误，错误信息：{response.json()}'}
         elif embddata.get('sdk') in ['openai']:
             logger.warning(f'开始调用openai组合中的embd模型={embddata.get("module")}')
-            return ''
+            return {'code': '200', 'data': ''}
         elif embddata.get('sdk') in ['dashscope', 'qwen-embedding', 'aly']:  # 阿里云qwen-embedding
             logger.warning(f'开始调用阿里的embd模型={embddata.get("module")}')
             dashscope.api_key = embddata.get('apikey', '')
@@ -110,23 +110,23 @@ def zyembd(text, embddata):
             if resp.status_code == HTTPStatus.OK:
                 logger.warning(f'调用阿里云qwen-embedding成功')
                 rdata = resp.output.get('embeddings')[0]
-                return rdata.get('embedding')
+                return {'code': '200', 'data':rdata.get('embedding')}
             else:
                 logger.warning(f'调用阿里云qwen-embedding失败，错误信息={resp}')
-                return ''
+                return {"code": "501", "data": f'文本转向量错误，错误信息：{resp}'}
         else:
             logger.warning(f'不支持的embd模型={embddata.get("sdk")}')
-            return ''
+            return {"code": "501", "data": f'不支持的embd模型={embddata.get("sdk")}'}
     except Exception as e:
         logger.error(f"调用embd模型错误: {e}")
         logger.error(traceback.format_exc())
-        return ''
+        return {"code": "501", "data": f'文本转向量错误，错误信息：{e}'}
 
 
 
 '''校验文件状态和变更状态，启动解析时，文件状态要为未解析，然后改为解析中，解析完成后改为已解析'''
 
-def  file_status(fileid, cmd):
+def  file_status(fileid, cmd, reason='未知原因'):
     try:
         if cmd in ['work']:  # 要解析文件，先校验状态为非work,然后把状态改为work
             sql = my.sqlc3({'fileid': fileid}, 'file', 1, 10, '')
@@ -146,7 +146,7 @@ def  file_status(fileid, cmd):
             return 1
         elif cmd in ['error']:  # 文件解析失败，把状态改为error
             logger.warning(f'文件解析失败，现在改状态为解析失败error')
-            sql = my.sqlg({'analysis': 'error'}, 'file', {'fileid': fileid})
+            sql = my.sqlg({'analysis': 'error', 'reason': reason}, 'file', {'fileid': fileid})
             jg3 = my.msqlzsg(sql)
             return 1
         else:
@@ -168,7 +168,7 @@ def vdb_mdb(ragdata, vdata, fileid):
             ragid = ragdata.get('ragid')
             if ragid:
                 vjg = insert_data(vdata, ragid)
-                if vjg:
+                if vjg.get('code') in ['200', 200]:
                     logger.warning(f'向量数据库数据存入成功')
                     # 存入mysql数据库
                     # sql = my.sqlg({'analysis': 'ok'}, 'file', {'fileid': fileid})
@@ -180,15 +180,21 @@ def vdb_mdb(ragdata, vdata, fileid):
                     # else:
                     #     logger.warning(f'数据存入mysql数据库失败')
                     #     return ''
-                    return 1
+                    return {'code': '200', 'data': vjg.get('data', '')}
                 else:
                     logger.warning(f'数据存入向量数据库失败')
-                    return ''
-        return ''
+                    return {'code': '501', 'data': f'数据存入向量数据库失败，错误信息：{vjg.get("data", "")}'}
+            else:
+                logger.warning(f' ragid为空')
+                return {'code': '501', 'data': f' ragid为空，请检查数据'}
+        else:
+            logger.warning(f'要插入的向量数据为空')
+            return {'code': '501', 'data': f'要插入的向量数据为空，请检查数据'}
+
     except Exception as e:
         logger.error(f"数据存入向量数据库错误: {e}")
         logger.error(traceback.format_exc())
-        return ''
+        return {"code": "501", "data": f'数据存入向量数据库错误，错误信息：{e}'}
 
 
 
@@ -212,6 +218,7 @@ def filejx(filedata, ragdata):
             logger.warning(f'file_fun={file_fun}')
         else:
             logger.warning(f'不支持的文件格式{file_extension}，文件数据={filedata}')
+            jg = file_status(filedata.get('fileid', ''), 'error', reason=f'文件格式不支持{file_extension}')
             return 0
         # 获取文件大小，超过100M的另外处理
         file_size = os.path.getsize(file_path)/(1024*1024)   # 转为M
@@ -220,6 +227,7 @@ def filejx(filedata, ragdata):
         datac = []
         if file_size > 100:
             logger.warning(f'文件大小超过100M暂不处理，文件数据={file_size}')
+            jg = file_status(filedata.get('fileid', ''), 'error', reason=f'文件大小超过100M暂不处理，文件大小={file_size}')
             return ''
         else:
             if '/' in file_fun:
@@ -249,31 +257,54 @@ def filejx(filedata, ragdata):
                 separator = split_data.get('separator', '\n\n\n|\n\n|\n|。')
                 maxsize = int(split_data.get('maxsize', 500))
                 o_size = int(split_data.get('o_size', 50))
-                textlist = textsplit.general(datac, separator=separator, maxsize=maxsize, o_size=o_size)
+                split_rdata = textsplit.general(datac, separator=separator, maxsize=maxsize, o_size=o_size)
+                if split_rdata.get('code') in [200, '200']:
+                    textlist = split_rdata.get('data', [])
+                else:
+                    jg = file_status(filedata.get('fileid', ''), 'error', reason=split_rdata.get('data', ''))
+                    return ''
                 # 处理llm泛华问题配置
                 if split_data.get('llm_q'):
                     pass
             elif split_fun in ['separator']:
                 logger.warning(f'指定分隔符文本分段开始')
-                textlist = textsplit.separator_split(datac, split_data.get('separator', '\n\n\n|\n\n|\n|。'),
+                split_rdata = textsplit.separator_split(datac, split_data.get('separator', '\n\n\n|\n\n|\n|。'),
                                                      split_data.get('maxsize', 5000))
+                if split_rdata.get('code') in [200, '200']:
+                    textlist = split_rdata.get('data', [])
+                else:
+                    jg = file_status(filedata.get('fileid', ''), 'error', reason=split_rdata.get('data', ''))
+                    return ''
                 # 处理llm泛华问题配置
                 if split_data.get('llm_q'):
                     pass
             elif split_fun in ['llm', 'LLM']:
                 logger.warning(f'LLM文本分段开始')
-                textlist = textsplit.llm_text(datac, split_data.get('text', ''), split_data.get('llm', ''), split_data.get('msg', ''))
+                llm_data = split_data.get('llm', '') if split_data.get('llm') else split_data.get('LLM', '')
+                split_rdata = textsplit.llm_text(datac, split_data.get('text', ''), llm_data, split_data.get('msg', ''),
+                                              maxsize=split_data.get('maxsize', 5000))
+                if split_rdata.get('code') in [200, '200']:
+                    textlist = split_rdata.get('data', [])
+                else:
+                    jg = file_status(filedata.get('fileid', ''), 'error', reason=split_rdata.get('data', ''))
+                    return ''
                 # 处理llm泛华问题配置
                 if split_data.get('llm_q'):
                     pass
             elif split_fun in ['qa']:
                 logger.warning(f'QA问答文本分段开始')
-                textlist = textsplit.qa_split(datac, split_data.get('maxsize', 5000))
+                split_rdata = textsplit.qa_split(datac, split_data.get('maxsize', 5000))
+                if split_rdata.get('code') in [200, '200']:
+                    textlist = split_rdata.get('data', [])
+                else:
+                    jg = file_status(filedata.get('fileid', ''), 'error', reason=split_rdata.get('data', ''))
+                    return ''
                 # 处理llm泛华问题配置
                 if split_data.get('llm_q') and textlist:
                     pass
             else:
                 logger.warning(f'不支持的文本分段方式{split_fun}，配置数据={split_data}')
+                jg = file_status(filedata.get('fileid', ''), 'error', reason=f'不支持的文本分段方式{split_fun}')
                 return ''
 
             # 转向量并存入向量数据库
@@ -303,10 +334,24 @@ def filejx(filedata, ragdata):
                             if split_fun in ['qa'] or split_data.get('llm_q'):  # 问答时t的数据格式为{q: ,a: }
                                 vd['q_text'] = t.get('q', '')
                                 vd['text'] = t.get('a', '')
-                                vd['vector'] = zyembd(t.get('q', ''), embddata)
+                                v_data = zyembd(t.get('q', ''), embddata)
+                                if v_data.get('code') in [200, '200']:
+                                    vd['vector'] = v_data.get('data', '')
+                                else:
+                                    jg = file_status(filedata.get('fileid', ''), 'error',
+                                                    reason=v_data.get('data', ''))
+                                    return ''
+                                # vd['vector'] = zyembd(t.get('q', ''), embddata)
                             else:  # 非问答时，t就是文本内容
                                 vd['text'] = t
-                                vd['vector'] = zyembd(t, embddata)
+                                v_data = zyembd(t, embddata)
+                                if v_data.get('code') in [200, '200']:
+                                    vd['vector'] = v_data.get('data', '')
+                                else:
+                                    jg = file_status(filedata.get('fileid', ''), 'error',
+                                                    reason=v_data.get('data', ''))
+                                    return ''
+                                # vd['vector'] = zyembd(t, embddata)
                         # elif search in ['sparse']:  # 稀疏向量化检索 当只使用全文检索时，且表中没有向量字段时走这个逻辑
                         #     logger.warning(f'稀疏向量化检索数据处理开始')
                         #     # 判断是否为问答或llm泛化问答
@@ -324,11 +369,25 @@ def filejx(filedata, ragdata):
                                 vd['q_text'] = t.get('q', '')
                                 vd['text'] = t.get('a', '')
                                 vd['s_text'] = t.get('q', '')
-                                vd['vector'] = zyembd(t.get('q', ''), embddata)
+                                v_data = zyembd(t.get('q', ''), embddata)
+                                if v_data.get('code') in [200, '200']:
+                                    vd['vector'] = v_data.get('data', '')
+                                else:
+                                    jg = file_status(filedata.get('fileid', ''), 'error',
+                                                    reason=v_data.get('data', ''))
+                                    return ''
+                                # vd['vector'] = zyembd(t.get('q', ''), embddata)
                             else:  # 非问答时，t就是文本内容
                                 vd['text'] = t
                                 vd['s_text'] = t
-                                vd['vector'] = zyembd(t, embddata)
+                                v_data = zyembd(t, embddata)
+                                if v_data.get('code') in [200, '200']:
+                                    vd['vector'] = v_data.get('data', '')
+                                else:
+                                    jg = file_status(filedata.get('fileid', ''), 'error',
+                                                    reason=v_data.get('data', ''))
+                                    return ''
+                                # vd['vector'] = zyembd(t, embddata)
                         else:
                             logger.error(f'检索方式{search}不存在，请检查')
                             # 跳过此次循环
@@ -339,17 +398,29 @@ def filejx(filedata, ragdata):
                         if len(vdata) > 1000:
                             logger.warning(f'vdata数据超过1000条，入库中')
                             jg = vdb_mdb(ragdata,vdata, fileid)  # 把vdata中现有的数据先入库
-                            if jg:
+                            if jg.get('code') in [200, '200']:
                                 vdata = []  # 清空vdata
+                            else:
+                                logger.warning(f'向量入库失败: {jg.get('data', '')}')
+                                jgs = file_status(filedata.get('fileid', ''), 'error',
+                                                 reason=f'向量数据入库失败: {jg.get('data', '')}')
+                                return ''
+
 
             # 检查vdata中是否还有数据
             if vdata:
                 logger.warning(f'vdata数据不足1000条，入库中')
                 jg2 = vdb_mdb(ragdata, vdata, fileid)
-                if jg2:
+                if jg2.get('code') in [200, '200']:
                     logger.warning(f'向量入库成功={filedata}')
                 else:
                     logger.error(f'向量入库失败={filedata}')
+                    jg = file_status(filedata.get('fileid', ''), 'error',
+                                    reason=f'向量数据入库失败: {jg2.get('data', '')}')
+                    return ''
+        else:
+            logger.warning(f"文件内容为空，请检查文件")
+            jg = file_status(filedata.get('fileid', ''), 'error', '文件内容为空，请检查文件')
         # 文件解析全部成功
         logger.warning(f'文件解析全部成功，文件数据={filedata}')
         # 解析成功，现在修改文件状态为ok
@@ -358,11 +429,11 @@ def filejx(filedata, ragdata):
         return 1
 
     except Exception as e:
-        logger.error(f'校验文件状态和变更状态失败，文件数据={filedata}')
+        logger.error(f'文件解析失败，文件数据={filedata}')
         logger.error(e)
         logger.error(traceback.format_exc())
         # 解析失败，修改文件状态为error
-        jg = file_status(filedata.get('fileid', ''), 'error')
+        jg = file_status(filedata.get('fileid', ''), 'error', reason=f'文件解析失败: {e}')
         return ''
 
 
@@ -441,10 +512,22 @@ def partjx(filedata, ragdata):
                 if split_fun:  # 问答时t的数据格式为{q: ,a: }
                     vd['q_text'] = split_fun
                     vd['text'] = text
-                    vd['vector'] = zyembd(split_fun, embddata)
+                    v_data = zyembd(split_fun, embddata)
+                    if v_data.get('code') in [200, '200']:
+                        vd['vector'] = v_data.get('data')
+                    else:
+                        logger.error(f'向量化失败，向量化数据={text}')
+                        return  ''
+                    # vd['vector'] = zyembd(split_fun, embddata)
                 else:  # 非问答时，t就是文本内容
                     vd['text'] = text
-                    vd['vector'] = zyembd(text, embddata)
+                    v_data = zyembd(text, embddata)
+                    if v_data.get('code') in [200, '200']:
+                        vd['vector'] = v_data.get('data')
+                    else:
+                        logger.error(f'向量化失败，向量化数据={text}')
+                        return ''
+                    # vd['vector'] = zyembd(text, embddata)
             # elif search in ['sparse']:  # 稀疏向量化检索 当只使用全文检索时，且表中没有向量字段时走这个逻辑
             #     logger.warning(f'稀疏向量化检索数据处理开始')
             #     # 判断是否为问答或llm泛化问答
@@ -462,11 +545,23 @@ def partjx(filedata, ragdata):
                     vd['q_text'] = split_fun
                     vd['text'] = text
                     vd['s_text'] = split_fun
-                    vd['vector'] = zyembd(split_fun, embddata)
+                    v_data = zyembd(split_fun, embddata)
+                    if v_data.get('code') in [200, '200']:
+                        vd['vector'] = v_data.get('data')
+                    else:
+                        logger.error(f'向量化失败，向量化数据={text}')
+                        return ''
+                    # vd['vector'] = zyembd(split_fun, embddata)
                 else:  # 非问答时，t就是文本内容
                     vd['text'] = text
                     vd['s_text'] = text
-                    vd['vector'] = zyembd(text, embddata)
+                    v_data = zyembd(text, embddata)
+                    if v_data.get('code') in [200, '200']:
+                        vd['vector'] = v_data.get('data')
+                    else:
+                        logger.error(f'向量化失败，向量化数据={text}')
+                        return ''
+                    # vd['vector'] = zyembd(text, embddata)
             else:
                 logger.error(f'检索方式{search}不存在，请检查')
             # 把本条数据加到vdata中

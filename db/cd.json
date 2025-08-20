@@ -84,7 +84,7 @@
                 "meta": {
                     "title": "对话记录",
                     "icon": "el-icon-User",
-                    "hidden": false,
+                    "hidden": true,
                     "keepAlive": true,
                     "alwaysShow": false,
                     "params": ""
@@ -164,7 +164,7 @@
                 "meta": {
                     "title": "文件管理",
                     "icon": "menu",
-                    "hidden": false,
+                    "hidden": true,
                     "keepAlive": true,
                     "alwaysShow": false,
                     "params": ""
@@ -173,11 +173,11 @@
             {
                 "path": "data",
                 "component": "rag/data/index",
-                "name": "data",
+                "name": "dataset",
                 "meta": {
                     "title": "数据集",
                     "icon": "tree",
-                    "hidden": false,
+                    "hidden": true,
                     "keepAlive": true,
                     "alwaysShow": false,
                     "params": ""
@@ -232,6 +232,19 @@
                     "title": "智能数据管理",
                     "icon": "el-icon-User",
                     "hidden": false,
+                    "keepAlive": true,
+                    "alwaysShow": false,
+                    "params": ""
+                }
+            },
+            {
+                "path": "ai_data-config",
+                "component": "data/ai_data/config",
+                "name": "ai_data_config",
+                "meta": {
+                    "title": "智能数据新增",
+                    "icon": "el-icon-User",
+                    "hidden": true,
                     "keepAlive": true,
                     "alwaysShow": false,
                     "params": ""
@@ -391,7 +404,7 @@
                 "meta": {
                     "title": "系统日志",
                     "icon": "document",
-                    "hidden": false,
+                    "hidden": true,
                     "keepAlive": true,
                     "alwaysShow": false,
                     "params": ""

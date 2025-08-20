@@ -180,6 +180,7 @@ file = {
             ('department', 'varchar(50) default "" comment "部门"'),
             ('state', 'varchar(5) default "t" comment "知识库状态，t为开，f为关，默认t"'),
             ('analysis', 'varchar(20) default "no analysis" comment "文件的解析状态如：no analysis未解析、OK解析成功、error解析错误、work解析中"'),
+            ('reason', 'varchar(200) default "" comment "文件解析失败的原因"'),
             ('split', 'varchar(300) default "{}" comment "文本切片方式,json格式"'),
             ('metadata', 'varchar(200) default "{}" comment "元数据，json格式"'),
             ('type', 'varchar(10) default "file" comment "数据类型，文件/网关url/录入/文件url，默认文件"'),

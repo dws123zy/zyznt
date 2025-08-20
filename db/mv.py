@@ -230,19 +230,19 @@ def insert_data(data, tbname, vdburl=dburl, vtoken=dbtoken, vdbname=dbname):
             print(res)
             if res:
                 logger.warning(f'{tbname}向量数据新增成功')
-                return 1
+                return {'code': '200', 'data': res}
             else:
                 logger.warning(f'{tbname}向量数据新增失败')
-                return 0
+                return {'code': '501', 'data': f'向量数据插入错误，错误信息：{res}'}
         except Exception as e:
             logger.error(f"向量数据新增出错: {e}")
-            return 0
+            return {'code': '501', 'data': f'向量数据插入错误，错误信息：{e}'}
         finally:
             client.close()
     except Exception as e2:
         logger.error(f"向量数据新增连接出错: {e2}")
         logger.error(traceback.format_exc())
-        return 0
+        return {'code': '501', 'data': f'向量数据插入错误，错误信息：{e2}'}
 
 
 '''更新、插入数据，无此主键增加，有则修改，修改是先删除原数据，然后插入'''

@@ -756,18 +756,18 @@ def part_update(mydata: partzgsarg):
                 logger.warning(f'向量化检索数据处理开始')
                 # 判断是否为问答或llm泛化问答
                 if q_text:  # 问答时t的数据格式为{q: ,a: }
-                    part['vector'] = zyembd(q_text, embddata)
+                    part['vector'] = zyembd(q_text, embddata).get('data')
                 else:  # 非问答时，t就是文本内容
-                    part['vector'] = zyembd(part.get('text', ''), embddata)
+                    part['vector'] = zyembd(part.get('text', ''), embddata).get('data')
             else:  # 全文检索  向量+稀疏向量检索
                 logger.warning(f'向量+稀疏向量检索数据处理开始')
                 # 判断是否为问答或llm泛化问答
                 if q_text:  # 问答时t的数据格式为{q: ,a: }
                     part['s_text'] = q_text
-                    part['vector'] = zyembd(q_text, embddata)
+                    part['vector'] = zyembd(q_text, embddata).get('data')
                 else:  # 非问答时，t就是文本内容
                     part['s_text'] = part.get('text', '')
-                    part['vector'] = zyembd(part.get('text', ''), embddata)
+                    part['vector'] = zyembd(part.get('text', ''), embddata).get('data')
 
         # 调取转向量函数，转换并入库
         jg = mv.upsert_data(partdata, ragdata.get('ragid', ''))
@@ -819,8 +819,8 @@ def part_del(mydata: partzgsarg):
 class vdataarg5(BaseModel):
     ragid: str = Field(frozen=True, description="知识库的id,必填")
     text: str = Field(frozen=True, description="查询的文本")
-    score: float = Field(0.1, description="相似度阀值")
-    limit: int = Field(10, description="返回的文本段数量")
+    score: float = Field(0, description="相似度阀值")
+    limit: int = Field(0, description="返回的文本段数量")
     filter: dict = Field({}, description="检索项，格式：{'字段名':'字段值'}")
     filter_json: dict = Field({}, description="json字段检索项，格式：{'字段名':{字段名：值}}")
     rerank: str = Field('', description="rerank重排序模型")
@@ -864,7 +864,13 @@ def rag_search(mydata: ragvarg):
             if search_fun in ['vector']:  # 密集向量搜索
                 logger.warning(f'向量搜索开始')
                 # 把text转为向量后传入搜索函数
-                textv = zyembd(data.get('text', ''), embddata)
+                text_v_data = zyembd(data.get('text', ''), embddata)
+                if text_v_data.get('code') in ['200', 200]:
+                    textv = text_v_data.get('data')
+                else:
+                    logger.error(f'向量化失败，向量化数据={data.get("text", "")}')
+                    return {"msg": "搜索文本转向量失败", "code": "150", "data": "搜索文本转向量失败"}
+                # textv = zyembd(data.get('text', ''), embddata)
                 datac = mv.vector_search(ragdata.get('ragid', ''), [textv], 'vector',
                                          limit=limit, radius=score)
             else:  # 稀疏向量搜索
@@ -874,7 +880,13 @@ def rag_search(mydata: ragvarg):
         elif search_fun in ['vs']:  # 混合搜索
             logger.warning(f'混合搜索开始')
             # 把text转为向量后传入搜索函数
-            textv = zyembd(data.get('text', ''), embddata)
+            text_v_data = zyembd(data.get('text', ''), embddata)
+            if text_v_data.get('code') in ['200', 200]:
+                textv = text_v_data.get('data')
+            else:
+                logger.error(f'向量化失败，向量化数据={data.get("text", "")}')
+                return {"msg": "搜索文本转向量失败", "code": "150", "data": "搜索文本转向量失败"}
+            # textv = zyembd(data.get('text', ''), embddata)
             # 组合重排序
             rerank = 'RRFRanker'
             rrv = '60'
@@ -947,7 +959,13 @@ def rag_search_mcp(mydata: ragvarg):
             if search_fun in ['vector']:  # 密集向量搜索
                 logger.warning(f'向量搜索开始')
                 # 把text转为向量后传入搜索函数
-                textv = zyembd(data.get('text', ''), embddata)
+                text_v_data = zyembd(data.get('text', ''), embddata)
+                if text_v_data.get('code') in ['200', 200]:
+                    textv = text_v_data.get('data')
+                else:
+                    logger.error(f'向量化失败，向量化数据={data.get("text", "")}')
+                    return {"msg": "搜索文本转向量失败", "code": "150", "data": "搜索文本转向量失败"}
+                # textv = zyembd(data.get('text', ''), embddata)
                 datac = mv.vector_search(ragdata.get('ragid', ''), [textv], 'vector',
                                          limit=limit, radius=score)
             else:  # 稀疏向量搜索
@@ -957,7 +975,13 @@ def rag_search_mcp(mydata: ragvarg):
         elif search_fun in ['vs']:  # 混合搜索
             logger.warning(f'混合搜索开始')
             # 把text转为向量后传入搜索函数
-            textv = zyembd(data.get('text', ''), embddata)
+            text_v_data = zyembd(data.get('text', ''), embddata)
+            if text_v_data.get('code') in ['200', 200]:
+                textv = text_v_data.get('data')
+            else:
+                logger.error(f'向量化失败，向量化数据={data.get("text", "")}')
+                return {"msg": "搜索文本转向量失败", "code": "150", "data": "搜索文本转向量失败"}
+            # textv = zyembd(data.get('text', ''), embddata)
             # 组合重排序
             rerank = 'RRFRanker'
             rrv = '60'

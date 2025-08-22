@@ -165,11 +165,21 @@ def read_ppt(ppt_file_path):
 '''读取csv文件'''
 
 import csv
+import chardet
 
 def read_csv(file_path):
     try:
         logger.warning(f'csv读取文件，文件路径={file_path}')
-        with open(file_path, 'r', encoding='utf-8') as csvfile:
+        # 先检测文件编码
+        with open(file_path, 'rb') as f:
+            result = chardet.detect(f.read())
+            # detected_encoding = result['encoding']
+            # confidence = result['confidence']
+
+        encoding = result['encoding'] if result['encoding'] else 'utf-8'
+        print(f"检测到的编码: {encoding}")
+
+        with open(file_path, 'r', encoding=encoding) as csvfile:
             # 创建csv阅读器
             csv_reader = csv.reader(csvfile)
             data = []
@@ -181,7 +191,7 @@ def read_csv(file_path):
     except Exception as e:
         logger.error(f"读取CSV文件时出错: {e}")
         logger.error(traceback.format_exc())
-        return ''
+        return []
 
 
 '''读取docx并提取图片转为url'''
@@ -197,7 +207,7 @@ import random
 # 读取路径和url配置
 with open('../file/conf.txt', 'r', encoding='utf-8') as data:
     conf = eval(data.read())
-image_dir = conf.get('image_dir') if conf.get('image_dir') else "../file/img"
+image_dir = conf.get('image_dir') if conf.get('image_dir') else "../file/public_img"
 base_url = conf.get('base_url') if conf.get('base_url') else "https://example.com/images"
 
 def read_docx_img(file_path, page2=''):
@@ -270,11 +280,11 @@ def read_docx_img(file_path, page2=''):
                                 image_url = dest_path
 
                             # 在文本中标记图片位置
-                            position_tag = f"[{image_name.replace(ext, '')}]"
-                            para_text += position_tag
+                            # position_tag = f"[{image_name.replace(ext, '')}]"
+                            # para_text += position_tag
 
                             # 替换为URL
-                            run.text = f" {image_url} "
+                            run.text = f' <img src="{image_url}" alt="{image_name.replace(ext, '')}"> '
                         else:
                             run.text = " [IMAGE_NOT_FOUND] "
                     else:

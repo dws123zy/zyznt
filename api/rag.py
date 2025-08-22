@@ -493,6 +493,7 @@ async def upload_files(files: list[UploadFile] = File(...), ragid: str=Form(''),
 @router.get("/file/getfile", tags=["文件/图片访问"])
 def file_getfile(appid: str, getid: str, filename: str):
     try:
+        logger.warning(f'收到文件访问请求，appid={appid}, getid={getid}, filename={filename}')
         if appid and getid and filename:
             file_dir = upload_dir + appid +'/'+getid+'/'
             return FileResponse(os.path.join(file_dir, filename))

@@ -6,7 +6,7 @@
         "name": "/agent",
         "meta": {
             "title": "智能体agent",
-            "icon": "system",
+            "icon": "agent",
             "hidden": false,
             "alwaysShow": false,
             "params": ""
@@ -18,7 +18,7 @@
                 "name": "chat",
                 "meta": {
                     "title": "对话",
-                    "icon": "el-icon-User",
+                    "icon": "chat",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -31,7 +31,7 @@
                 "name": "agent",
                 "meta": {
                     "title": "智能体agent",
-                    "icon": "el-icon-User",
+                    "icon": "agent",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -44,7 +44,7 @@
                 "name": "agentflow",
                 "meta": {
                     "title": "智能体流",
-                    "icon": "role",
+                    "icon": "flow",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -57,7 +57,7 @@
                 "name": "chatset",
                 "meta": {
                     "title": "对话设置",
-                    "icon": "el-icon-User",
+                    "icon": "dialog_setting",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -83,7 +83,7 @@
                 "name": "AgentRecord",
                 "meta": {
                     "title": "对话记录",
-                    "icon": "el-icon-User",
+                    "icon": "session_record",
                     "hidden": true,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -99,7 +99,7 @@
         "name": "/rag",
         "meta": {
             "title": "知识增强RAG",
-            "icon": "system",
+            "icon": "rag_knowledge",
             "hidden": false,
             "alwaysShow": false,
             "params": ""
@@ -111,7 +111,7 @@
                 "name": "rag",
                 "meta": {
                     "title": "RAG知识库",
-                    "icon": "el-icon-User",
+                    "icon": "rag_knowledge",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -150,7 +150,7 @@
                 "name": "search",
                 "meta": {
                     "title": "搜索知识",
-                    "icon": "role",
+                    "icon": "searchknowledge",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -192,7 +192,7 @@
         "name": "/ai_data",
         "meta": {
             "title": "智能数据BI",
-            "icon": "system",
+            "icon": "intelligent_mata_management",
             "hidden": false,
             "alwaysShow": false,
             "params": ""
@@ -204,7 +204,7 @@
                 "name": "chatbi",
                 "meta": {
                     "title": "智能ChatBi",
-                    "icon": "el-icon-User",
+                    "icon": "chatbi",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -217,7 +217,7 @@
                 "name": "graphic",
                 "meta": {
                     "title": "数据可视化",
-                    "icon": "role",
+                    "icon": "data_view",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -230,7 +230,7 @@
                 "name": "ai_data",
                 "meta": {
                     "title": "智能数据管理",
-                    "icon": "el-icon-User",
+                    "icon": "dataset",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -256,7 +256,7 @@
                 "name": "db_model",
                 "meta": {
                     "title": "数据模型",
-                    "icon": "menu",
+                    "icon": "data_model",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,
@@ -269,7 +269,7 @@
                 "name": "db",
                 "meta": {
                     "title": "数据源管理",
-                    "icon": "tree",
+                    "icon": "data_source_config",
                     "hidden": false,
                     "keepAlive": true,
                     "alwaysShow": false,

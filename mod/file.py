@@ -250,7 +250,8 @@ def filejx(filedata, ragdata):
             if split_data and type(split_data) in [str]:
                 split_data = eval(split_data)
                 # 把split中的separator的值中的LF转为\n
-                split_data['separator'] = split_data['separator'].replace('LF', '\n')
+                if 'separator' in split_data:
+                    split_data['separator'] = split_data['separator'].replace('LF', '\n')
             split_fun = split_data.get('split_fun', 'general')
             if split_fun in ['general']:  # 通用分段
                 logger.warning(f'通用文本分段开始')
@@ -293,6 +294,10 @@ def filejx(filedata, ragdata):
                     pass
             elif split_fun in ['qa']:
                 logger.warning(f'QA问答文本分段开始')
+                if file_extension not in ['xlsx', '.xlsx']:
+                    logger.warning(f'QA问答文本分段，不支持{file_extension}格式的文件')
+                    jg = file_status(filedata.get('fileid', ''), 'error', reason=f'QA问答文本分段，不支持{file_extension}格式的文件')
+                    return ''
                 split_rdata = textsplit.qa_split(datac, split_data.get('maxsize', 5000))
                 if split_rdata.get('code') in [200, '200']:
                     textlist = split_rdata.get('data', [])
@@ -420,7 +425,8 @@ def filejx(filedata, ragdata):
                     return ''
         else:
             logger.warning(f"文件内容为空，请检查文件")
-            jg = file_status(filedata.get('fileid', ''), 'error', '文件内容为空，请检查文件')
+            jg = file_status(filedata.get('fileid', ''), 'error', '文件内容读取失败，请检查文件格式或是否有内容')
+            return ''
         # 文件解析全部成功
         logger.warning(f'文件解析全部成功，文件数据={filedata}')
         # 解析成功，现在修改文件状态为ok

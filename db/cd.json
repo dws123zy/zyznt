@@ -5,7 +5,7 @@
         "redirect": "/agent/chat",
         "name": "/agent",
         "meta": {
-            "title": "智能体agent",
+            "title": "智能体",
             "icon": "agent",
             "hidden": false,
             "alwaysShow": false,
@@ -30,7 +30,7 @@
                 "component": "agent/agent/index",
                 "name": "agent",
                 "meta": {
-                    "title": "智能体agent",
+                    "title": "智能体",
                     "icon": "agent",
                     "hidden": false,
                     "keepAlive": true,
@@ -43,7 +43,7 @@
                 "component": "agent/agentflow/index",
                 "name": "agentflow",
                 "meta": {
-                    "title": "智能体流",
+                    "title": "AI工作流",
                     "icon": "flow",
                     "hidden": false,
                     "keepAlive": true,
@@ -56,7 +56,7 @@
                 "component": "agent/chatset/index",
                 "name": "chatset",
                 "meta": {
-                    "title": "对话设置",
+                    "title": "对话集成设置",
                     "icon": "dialog_setting",
                     "hidden": false,
                     "keepAlive": true,
@@ -65,7 +65,7 @@
                 }
             },
 			{
-                "path": "agent-config",
+                "path": "/agent-config/:id",
                 "component": "agent/agent/config",
                 "name": "AgentConfig",
                 "meta": {
@@ -98,7 +98,7 @@
         "redirect": "/rag/rag",
         "name": "/rag",
         "meta": {
-            "title": "知识增强RAG",
+            "title": "RAG知识库",
             "icon": "rag_knowledge",
             "hidden": false,
             "alwaysShow": false,
@@ -123,7 +123,7 @@
                 "component": "rag/rag/info",
                 "name": "RagInfo",
                 "meta": {
-                    "title": "数据集",
+                    "title": "数据集配置",
                     "icon": "el-icon-User",
                     "hidden": true,
                     "keepAlive": true,
@@ -132,7 +132,7 @@
                 }
             },
             {
-                "path": "rag-config",
+                "path": "/rag-config/:id",
                 "component": "rag/rag/config",
                 "name": "RagConfig",
                 "meta": {
@@ -171,8 +171,8 @@
                 }
             },
             {
-                "path": "data",
-                "component": "rag/data/index",
+                "path": "/dataset/:id",
+                "component": "rag/dataset/index",
                 "name": "dataset",
                 "meta": {
                     "title": "数据集",
@@ -203,7 +203,7 @@
                 "component": "data/chatbi/index",
                 "name": "chatbi",
                 "meta": {
-                    "title": "智能ChatBi",
+                    "title": "对话数据ChatBi",
                     "icon": "chatbi",
                     "hidden": false,
                     "keepAlive": true,
@@ -238,7 +238,7 @@
                 }
             },
             {
-                "path": "ai_data-config",
+                "path": "/ai_data-config/:id",
                 "component": "data/ai_data/config",
                 "name": "ai_data_config",
                 "meta": {
@@ -286,7 +286,7 @@
         "meta": {
             "title": "图文多态",
             "icon": "system",
-            "hidden": false,
+            "hidden": true,
             "alwaysShow": false,
             "params": ""
         },
@@ -298,7 +298,7 @@
                 "meta": {
                     "title": "图文多态",
                     "icon": "el-icon-User",
-                    "hidden": false,
+                    "hidden": true,
                     "keepAlive": true,
                     "alwaysShow": false,
                     "params": ""
@@ -311,7 +311,7 @@
                 "meta": {
                     "title": "图片多态",
                     "icon": "role",
-                    "hidden": false,
+                    "hidden": true,
                     "keepAlive": true,
                     "alwaysShow": false,
                     "params": ""

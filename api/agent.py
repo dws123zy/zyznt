@@ -473,7 +473,7 @@ async def mcp_tools_get(mydata: mcppublicarg):
             # 改写工具中的name，加上/mcp server name，判断是否有rag、agent的mcp服务，如果有，修改下工具描述
             for tool in tools_data:
                 # 增加服务名
-                tool['function']['name'] = f"{tool['function']['name']}/{mcp_server_name}"
+                # tool['function']['name'] = f"{tool['function']['name']}/{mcp_server_name}"
                 # 增加rag agent工具描述
                 if 'type=rag' in str(mcp_data):
                     # 获取mcp服务中的url

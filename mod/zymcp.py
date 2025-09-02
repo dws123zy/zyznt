@@ -101,9 +101,9 @@ logger = logging.getLogger(__name__)
 '''mcp_client连接与运行fastmcp'''
 
 async def mcp_client(mcp_data, cmd, tooldata={}):
+    tool_info = {"content": "", "role": "tool", "tool_call_id": tooldata.get("id", "")}  # 工具调用结果格式
     try:
         logger.warning(f"开始执行mcp_client, mcp_data={mcp_data}, cmd={cmd}, tooldata={tooldata}")
-        tool_info = {"content": "", "role": "tool", "tool_call_id": tooldata.get("id", "")}  # 工具调用结果格式
         tool_name = tooldata.get('function', {}).get('name', '')
         client = Client(mcp_data)
         async with client:
@@ -111,7 +111,7 @@ async def mcp_client(mcp_data, cmd, tooldata={}):
             if cmd in ['call_tool']:
                 logger.warning("调用mcp工具Calling tool...")
                 function = tooldata.get('function', {})
-                tool_name = function.get('name', '').split('/')[0]
+                tool_name = function.get('name', '')  # .split('/')[0]
                 result = await client.call_tool(tool_name, arguments=json.loads(function.get('arguments')))
                 logger.warning(f"result_all={result}\n\n\n")
                 logger.warning(f"result={result}\n\n\n")
@@ -127,14 +127,17 @@ async def mcp_client(mcp_data, cmd, tooldata={}):
                 return toolslist
             else:
                 logger.warning(f"未知的mcp运行={cmd}")
-                return ''
+                return []
 
         # Connection is closed automatically here
-        logger.warning(f"Client connected: {client.is_connected()}")
+        # logger.warning(f"Client connected: {client.is_connected()}")
 
     except Exception as e:
         logger.error(f'mcprun错误信息：{e}')
         logger.error(traceback.format_exc())
+        if cmd in ['call_tool']:
+            tool_info["content"] = f'工具执行错误：{e}'
+            return tool_info
         return []
 
 

@@ -558,7 +558,7 @@ async def agent_work(q_data):
             agent = agent_data.get('data', {})
             # agent = get_agent(q_data.get('agentid', '')).get('data', {})
             if agent:
-                ragtext = '空'
+                ragtext = ''
                 q_text = q_data.get('msg', [])[-1].get('content', '')  # 拿到本次的问题
                 # 处理rag知识搜索
                 if agent.get('rag', ''):  # 有值说明有配置，要查rag

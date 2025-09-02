@@ -54,8 +54,15 @@ base_url='https://ark.cn-beijing.volces.com/api/v3',  # 火山
 
 def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
     try:
+        # 处理工具集
+        new_tools = tools
         if not tools:
-            tools = None
+            new_tools = None
+        elif type(tools) in [dict]:
+            new_tools = []
+            for t in tools:
+                if tools[t]:
+                    new_tools = new_tools+tools[t]
         # 组合客户端
         client = OpenAI(
             api_key = apikey,
@@ -67,7 +74,7 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
             model=mod,
             temperature=float(temperature),  # 热度
             messages=msg,  # 消息列表、提示词、上下文
-            tools=tools,  # 工具集
+            tools=new_tools,  # 工具集
         )
 
         # 有工具调用时循环，保证多轮工具调用
@@ -112,7 +119,7 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
                     # 调用工具
                     tool_status = f'开始调用工具={tool_data[0].get('function', {}).get('name')}'
                     logger.warning(tool_status)
-                    tool_result = asyncio.run(tool_call_result(tool_data))
+                    tool_result = asyncio.run(tool_call_result(tool_data, tools))
                 else:
                     logger.warning('调用工具失败,无工具调用数据')
                 # 组合工具调用信息到msg中返回给大模型
@@ -128,7 +135,7 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
                     model=mod,
                     temperature=float(temperature),  # 热度
                     messages=msg,  # 消息列表、提示词、上下文
-                    tools=tools,  # 工具集
+                    tools=new_tools,  # 工具集
                 )
 
             else:
@@ -147,8 +154,15 @@ def openai_llm(msg, apikey, url, mod, tools=None, temperature=0.7):
 
 async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, stream=True):
     try:
+        # 处理工具集
+        new_tools = tools
         if not tools:
-            tools = None
+            new_tools = None
+        elif type(tools) in [dict]:
+            new_tools = []
+            for t in tools:
+                if tools[t]:
+                    new_tools = new_tools+tools[t]
         # 组合客户端
         client = AsyncOpenAI(
             api_key = apikey,
@@ -163,7 +177,7 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
             model=mod,
             temperature=float(temperature),  # 热度
             messages=msg,  # 消息列表、提示词、上下文
-            tools=tools,  # 工具集
+            tools=new_tools,  # 工具集
             stream=stream  # 流式输出
         )
 
@@ -220,7 +234,7 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
                     logger.warning(tool_status)
                     # yield tool_status
                     yield {"time": now_time2, "text": tool_status}
-                    tool_result = await tool_call_result(tool_data)
+                    tool_result = await tool_call_result(tool_data, tools)
                 else:
                     logger.warning('调用工具失败,无工具调用数据')
                     # yield {"time": now_time2, "text": "调用工具失败,无工具调用数据"}
@@ -240,7 +254,7 @@ async def openai_llm_stream(msg, apikey, url, mod, tools=None, temperature=0.9, 
                     model=mod,
                     temperature=float(temperature),  # 热度
                     messages=msg,  # 消息列表、提示词、上下文
-                    tools=tools,  # 工具集
+                    tools=new_tools,  # 工具集
                     stream=stream  # 流式输出
                 )
             else:
@@ -306,7 +320,7 @@ async def parse_tool_data(toollist):
 
 '''工具调用并返回结果'''
 
-async def tool_call_result(accumulated_tool_calls):
+async def tool_call_result(accumulated_tool_calls, tools={}):
     try:
         tool_res_list = []
         # 流处理结束后，提取工具调用信息
@@ -314,8 +328,18 @@ async def tool_call_result(accumulated_tool_calls):
             if tool_call["function"]["name"]:  # 有工具名就可以调用
                 try:
                     # 获取工具信息并判断工具类型
-                    tool_name = tool_call["function"]["name"].split('/')
-                    tool_data = get_zydict('tool', tool_name[1])
+                    tool_id = ''
+                    if tools:
+                        for i in tools:
+                            if tools[i]:
+                                for t in tools[i]:
+                                    if t.get('function', {}).get('name') in [tool_call["function"]["name"]]:
+                                        tool_id = i
+                                        break
+                    else:
+                        # tool_id = tool_call["function"]["name"].split('/')[1]
+                        tool_res_list.append({"content": "工具执行错误,无此工具", "role": "tool", "tool_call_id": tool_call.get("id", "")})
+                    tool_data = get_zydict('tool', tool_id)
                     if tool_data.get('type') in ['mcp']:
                         logger.warning(f"工具类型为mcp，调用mcp模块")
                         mcp_data = tool_data.get('data', {})
@@ -325,9 +349,13 @@ async def tool_call_result(accumulated_tool_calls):
                         tool_res_list.append(tool_result)
                     else:
                         logger.warning(f"工具类型为{tool_data.get('type')},调用普通工具模块")
+                        tool_res_list.append({"content": "工具执行错误,无此工具", "role": "tool", "tool_call_id": tool_call.get("id", "")})
 
                 except Exception as e2:
                     logger.error(f"工具{tool_call["function"]["name"]}调用错误:: {e2}")
+                    logger.error(traceback.format_exc())
+                    tool_res_list.append(
+                        {"content": f"工具执行错误:{e2}", "role": "tool", "tool_call_id": tool_call.get("id", "")})
 
 
         return tool_res_list

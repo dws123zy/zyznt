@@ -7,6 +7,7 @@ from pymysql.converters import escape_string
 import logging
 import json
 import base64
+from mod.tool import openfile  # 文件打开
 
 
 '''日志'''
@@ -14,17 +15,47 @@ import base64
 logger = logging.getLogger(__name__)
 
 
+
+'''项目配置文件'''
+
+conf_data = {}
+try:
+    if '{' in str(openfile('../file/conf.txt')):
+        conf_data = eval(openfile('../file/conf.txt'))
+except:
+    conf_data = {}
+
+'''mysql配置全局变量'''
+
+my_host = '127.0.0.1'
+if conf_data.get('my_host'):
+    my_host = conf_data.get('my_host', '127.0.0.1')
+
+my_port = 3306
+if conf_data.get('my_port'):
+    my_port = conf_data.get('my_port', 3306)
+
+my_password = 'zyznt'
+if conf_data.get('my_password'):
+    my_password = conf_data.get('my_password', 'zyznt')
+
+my_user = 'root'
+if conf_data.get('my_user'):
+    my_user = conf_data.get('my_user', 'root')
+
+
+
 '''mysql函数,传入sql命令，返回数据和状态，数据已按列表字典组合完成'''
 
 
 '''mysql查询执行函数，不带获取总条数'''
 
-def msqlc(sqlcmd, mysqlip='127.0.0.1', dataname='zyai'):
+def msqlc(sqlcmd, mysqlip=my_host, dataname='zyai'):
     try:
         conn = pymysql.connect(host=mysqlip,
-                               user="root",
-                               password="Dws666888",
-                               port=3306,  # 端口
+                               user=my_user,
+                               password=my_password,
+                               port=my_port,  # 端口
                                database=dataname,
                                charset="utf8")
         cur = conn.cursor()
@@ -58,13 +89,13 @@ def msqlc(sqlcmd, mysqlip='127.0.0.1', dataname='zyai'):
 
 '''查询+获取总条数'''
 
-def msqlcxnum(sqlcmd, mysqlip='127.0.0.1', dataname='zyai'):
+def msqlcxnum(sqlcmd, mysqlip=my_host, dataname='zyai'):
     try:
         # print('sqlcmd=', sqlcmd)
         conn = pymysql.connect(host=mysqlip,
-                               user="root",
-                               password="Dws666888",
-                               port=3306,  # 端口
+                               user=my_user,
+                               password=my_password,
+                               port=my_port,  # 端口
                                database=dataname,
                                charset="utf8")
         cur = conn.cursor()
@@ -98,13 +129,13 @@ def msqlcxnum(sqlcmd, mysqlip='127.0.0.1', dataname='zyai'):
 
 '''插入、删除、修改用，带提交确认'''
 
-def msqlzsg(sqlcmd, mysqlip='127.0.0.1', dataname='zyai'):
+def msqlzsg(sqlcmd, mysqlip=my_host, dataname='zyai'):
     try:
         # print('sqlcmd=', sqlcmd)
         conn = pymysql.connect(host=mysqlip,
-                               user="root",
-                               password="Dws666888",
-                               port=3306,  # 端口
+                               user=my_user,
+                               password=my_password,
+                               port=my_port,  # 端口
                                database=dataname,
                                charset="utf8")
         cur = conn.cursor()

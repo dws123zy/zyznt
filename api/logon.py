@@ -15,6 +15,7 @@ import traceback
 
 from mod.tool import openfile, writefile  # 文件打开和写入
 from data.data import logonac
+from db.zyredis import r_set_exp
 
 
 '''此模块用于用户登录管理'''
@@ -27,7 +28,13 @@ logger = logging.getLogger(__name__)
 
 '''人机验证开关配置'''
 
-verify = eval(openfile('../file/conf.txt')).get('verify', 1)
+verify = 1
+try:
+    if eval(openfile('../file/conf.txt')):
+        verify = eval(openfile('../file/conf.txt')).get('verify', 1)
+except:
+    verify = 1
+
 
 
 '''人机验证码生成'''
@@ -72,7 +79,9 @@ def generate_math_captcha():
         imgid = str(int(time.time()))+''.join(random.choice(characters) for _ in range(6))
 
         # 存入本地文件
-        writefile(f'../file/img/{imgid}.txt', str(answer))
+        # writefile(f'../file/img/{imgid}.txt', str(answer))
+        # 存入redis，过期时间默认180秒
+        r_set_exp([imgid, str(answer)])
 
         # 返回 Base64 编码的图片、问题和答案
         return img_base64, question, str(answer), imgid

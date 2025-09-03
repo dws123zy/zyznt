@@ -1,7 +1,7 @@
 # _*_coding:utf-8 _*_
 
 import traceback
-import time
+# import time
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError

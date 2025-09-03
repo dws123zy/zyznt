@@ -7,7 +7,9 @@ import time
 import traceback
 
 from db.my import msqlc, msqlzsg, sqlc3, safe_base64_to_list
-from mod.tool import openfile, writefile  # 文件打开和写入
+# from mod.tool import openfile, writefile  # 文件打开和写入
+from db.zyredis import rstr
+
 
 '''日志'''
 
@@ -100,7 +102,8 @@ def loadusers():
             for u in datac:
                 if u.get('user'):
                     users[u.get('user', '')] = u
-        logger.warning(f'加载user成功={users}')
+        # logger.warning(f'加载user成功={users}')
+        logger.warning('加载user成功')
     except Exception as e:
         logger.error({"loadusers错误:": e})
         logger.error(e)
@@ -122,7 +125,8 @@ def loadzydict():
                 edata = eval(i['data'])
                 zydict[i['dictid']] = i
                 zydict[i['dictid']]['data'] = edata
-            logger.warning(f'reloaddict成功={zydict}')
+            # logger.warning(f'reloaddict成功={zydict}')
+            logger.warning('reloaddict成功')
             return 200
         else:
             logger.warning('错误，未查到数据字典数据，reload失败')
@@ -162,7 +166,8 @@ def loadrag():
                     ragdata[i['ragid']]['mcp'] = mcp_data
                 else:
                     ragdata[i['ragid']]['mcp'] = {}
-            logger.warning(f'reload_rag成功={ragdata}')
+            # logger.warning(f'reload_rag成功={ragdata}')
+            logger.warning('reload_rag成功=')
             return 200
         else:
             logger.warning('错误，未查到rag数据，reload_rag失败')
@@ -201,7 +206,8 @@ def loadagent():
                     i['mcp'] = mcp_data
                 else:
                     i['mcp'] = {}
-            logger.warning(f'reload agent成功={agentdata}')
+            # logger.warning(f'reload agent成功={agentdata}')
+            logger.warning('reload agent成功')
             return 200
         else:
             logger.warning('错误，未查到agent智能体数据，reload失败')
@@ -220,7 +226,9 @@ loadagent()  # 加载agent数据
 
 def img_verify(imgid, verify):
     try:
-        if openfile(f'../file/img/{imgid}.txt') == verify:
+        # if openfile(f'../file/img/{imgid}.txt') == verify:
+        r_verify = rstr(['get', imgid])
+        if r_verify == verify:
             return True
         else:
             return False
@@ -244,7 +252,7 @@ def logonac(data):
                 # 判断appid公司是否开启了动态验证，如果t,则判断验证码是否正确,否则不判断验证码
                 if appids[appid].get('verify', '') in ['t']:
                     if not img_verify(data.get('imgid'), data.get('verify')):
-                        return {'code': '403', 'msg': '验证码错误'}
+                        return {'code': '403', 'msg': '验证码已过期或错误'}
                 # 生成token，设置有效期
                 token = secrets.token_hex(16)  # 生成32位安全随机字符串
                 expire = int(time.time()) + 3600 * 24 * 3

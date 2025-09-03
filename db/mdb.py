@@ -1,7 +1,11 @@
+# _*_coding:utf-8 _*_
+
 import pymysql
-from pymysql.constants import CLIENT
+# from pymysql.constants import CLIENT
 from pymysql.err import OperationalError, ProgrammingError
 import logging
+import random
+from mod.tool import openfile  # 文件打开
 
 
 # 配置日志
@@ -11,12 +15,22 @@ logger = logging.getLogger(__name__)
 logger.warning('*****卓越数据库初始化程序*****')
 
 
+'''项目配置文件'''
+
+conf_data = {}
+try:
+    if '{' in str(openfile('../file/conf.txt')):
+        conf_data = eval(openfile('../file/conf.txt'))
+except:
+    conf_data = {}
+
+
 # 数据库连接配置
 DB_CONFIG = {
-    'host': '127.0.0.1',
-    'user': 'root',
-    'password': 'Dws666888',
-    'port': 3306
+    'host': conf_data.get('my_host', '127.0.0.1'),
+    'user': conf_data.get('my_user', 'root'),
+    'password': conf_data.get('my_password', 'zyznt'),
+    'port': conf_data.get('my_port', 3306),
 }
 
 # 数据库名称
@@ -320,16 +334,16 @@ def check_and_create_database():
         # 如果数据库不存在，则创建
         if e.args[0] == 1049:  # Unknown database error code
             logger.info(f"数据库 {DB_NAME} 不存在，正要创建...")
-            jg = input(f'数据库{DB_NAME}, 不存在，是否创建？y/n\n')
-            if jg == 'y':
-                conn = get_db_connection()
-                with conn.cursor() as cursor:
-                    cursor.execute(f"CREATE DATABASE {DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
-                    conn.commit()
-                    logger.info(f"数据库 {DB_NAME} 创建成功")
-                conn.close()
-            else:
-                logger.warning('您选择的是不创建，现在退出数据库初始化流程')
+            # jg = input(f'数据库{DB_NAME}, 不存在，是否创建？y/n\n')
+            # if jg == 'y':
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(f"CREATE DATABASE {DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+                conn.commit()
+                logger.info(f"数据库 {DB_NAME} 创建成功")
+            conn.close()
+            # else:
+            #     logger.warning('您选择的是不创建，现在退出数据库初始化流程')
         else:
             logger.error(f"连接数据库时出错: {e}")
             raise
@@ -349,21 +363,34 @@ def check_and_create_table(table_name, definition):
             if not exists:
                 # 表不存在，创建新表
                 print(f"表 {table_name} 不存在，正要创建...")
-                jg = input(f'表{table_name}, 不存在，是否创建？y/n\n')
-                if jg == 'y':
-                    columns_sql = ', '.join([f"{col[0]} {col[1]}" for col in definition['columns']])
-                    create_sql = f"CREATE TABLE {table_name} ({columns_sql})"
-                    logger.warning('sql='+str(create_sql))
-                    cursor.execute(create_sql)
+                # jg = input(f'表{table_name}, 不存在，是否创建？y/n\n')
+                # if jg == 'y':
+                columns_sql = ', '.join([f"{col[0]} {col[1]}" for col in definition['columns']])
+                create_sql = f"CREATE TABLE {table_name} ({columns_sql})"
+                logger.warning('sql='+str(create_sql))
+                cursor.execute(create_sql)
 
-                    # 创建索引
-                    for index_name, column in definition['indexes']:
-                        sqlindex = f"CREATE INDEX {index_name} ON {table_name} ({column})"
-                        logger.warning('sql='+str(sqlindex))
-                        cursor.execute(sqlindex)
+                # 创建索引
+                for index_name, column in definition['indexes']:
+                    sqlindex = f"CREATE INDEX {index_name} ON {table_name} ({column})"
+                    logger.warning('sql='+str(sqlindex))
+                    cursor.execute(sqlindex)
 
+                conn.commit()
+                logger.info(f"表 {table_name} 创建成功")
+                # 新表创建时，增加初始化数据
+                if table_name in ['user']:
+                    # 生成appid
+                    appid = 'zyznt' + str(random.randint(100, 999))
+                    # 增加公司
+                    sql = f"INSERT INTO company (name, appid) VALUES ('卓越智能体', '{appid}');"
+                    cursor.execute(sql)
+                    # 增加用户
+                    sql = f"INSERT INTO user (user, password, userid, appid, name, role) VALUES ('admin@zyznt', 'zyznt', '8000', '{appid}', '管理员', 'admin');"
+                    cursor.execute(sql)
                     conn.commit()
-                    logger.info(f"表 {table_name} 创建成功")
+
+
             else:
                 # 表存在，检查结构是否一致
                 logger.info(f"表 {table_name} 已存在，正在检查结构...")
@@ -372,34 +399,34 @@ def check_and_create_table(table_name, definition):
                 # 获取现有列信息
                 cursor.execute(f"DESCRIBE {table_name}")
                 allzd = cursor.fetchall()
-                print('所有字段allzd='+str(allzd))
+                # print('所有字段allzd='+str(allzd))
                 existing_columns = {row[0]: row[1] for row in allzd}
-                logger.warning(f'现在表{table_name}所有的列='+str(existing_columns))
-                logger.warning(f'现在设计的表{table_name}所有的列='+str(definition['columns']))
+                # logger.warning(f'现在表{table_name}所有的列='+str(existing_columns))
+                # logger.warning(f'现在设计的表{table_name}所有的列='+str(definition['columns']))
 
                 '''检查列，也就是字段'''
                 for col_name, col_def in definition['columns']:
                     if col_name not in existing_columns:
                         print(f"列 {col_name} 不存在，正要添加...")
-                        jg = input(f'列{col_name}, 属性={col_def}，是否添加？y/n\n')
-                        if jg == 'y':
-                            logger.info(f"添加新列 {col_name} {col_def}")
-                            cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}")
-                            update_needed = True
-                        else:
-                            logger.warning(f"您选择的是不添加，现在跳过创建字段{col_name}")
-                    else:
-                        # 暂不做修改和删除功能
-                        # 这里可以添加更详细的列定义比较逻辑
-                        logger.warning(f'未发现不同{col_name}')
+                        # jg = input(f'列{col_name}, 属性={col_def}，是否添加？y/n\n')
+                        # if jg == 'y':
+                        logger.info(f"添加新列 {col_name} {col_def}")
+                        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}")
+                        update_needed = True
+                        # else:
+                        #     logger.warning(f"您选择的是不添加，现在跳过创建字段{col_name}")
+                    # else:
+                    #     # 暂不做修改和删除功能
+                    #     # 这里可以添加更详细的列定义比较逻辑
+                    #     logger.warning(f'未发现不同{col_name}')
 
                 ''''# 检查索引'''
                 cursor.execute(f"SHOW INDEX FROM {table_name}")
                 allindex = cursor.fetchall()
-                logger.warning(f'现在表{table_name}查到的所有的索引='+str(allindex))
+                # logger.warning(f'现在表{table_name}查到的所有的索引='+str(allindex))
                 existing_indexes = {}  # 存储表中现有索引
                 for row in allindex:
-                    print(f'索引={row}')
+                    # print(f'索引={row}')
                     # 只关注我们定义的索引，主键索引不看
                     if row[2] not in ["PRIMARY"]: # .startswith('idx_'):  # 主键不检查
                         if row[2] not in existing_indexes:  # 如果索引名不存在，则创建
@@ -411,8 +438,8 @@ def check_and_create_table(table_name, definition):
                 defined_indexes = definition['indexes']
 
 
-                logger.info(f'配置的索引={defined_indexes}')
-                logger.info(f'现有索引={existing_indexes}')
+                # logger.info(f'配置的索引={defined_indexes}')
+                # logger.info(f'现有索引={existing_indexes}')
 
                 # 添加缺失的索引  暂不判断修改和删除
                 for index_d in defined_indexes:
@@ -420,16 +447,16 @@ def check_and_create_table(table_name, definition):
                     column = index_d[1]
                     if index_name not in existing_indexes:
                         logger.info(f"添加索引 {index_d} ")
-                        jg = input(f'索引{index_d}, 是否添加？y/n\n')
-                        if jg == 'y':
+                        # jg = input(f'索引{index_d}, 是否添加？y/n\n')
+                        # if jg == 'y':
 
-                            sqlindex = f"CREATE INDEX {index_name} ON {table_name} ({column})"
-                            logger.warning('sql='+str(sqlindex))
-                            cursor.execute(sqlindex)
-                            update_needed = True
-                            logger.info(f"添加新索引 {index_name} 成功")
-                        else:
-                            logger.warning(f"您选择的是不添加，现在跳过创建索引{index_name}")
+                        sqlindex = f"CREATE INDEX {index_name} ON {table_name} ({column})"
+                        logger.warning('sql='+str(sqlindex))
+                        cursor.execute(sqlindex)
+                        update_needed = True
+                        logger.info(f"添加新索引 {index_name} 成功")
+                        # else:
+                        #     logger.warning(f"您选择的是不添加，现在跳过创建索引{index_name}")
 
 
                 # 删除多余的索引（谨慎操作，这里只是示例）
@@ -472,8 +499,8 @@ def initialize_database():
         raise
 
 
-if __name__ == "__main__":
-    initialize_database()
+
+# initialize_database()
 
 
 

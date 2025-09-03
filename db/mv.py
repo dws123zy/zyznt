@@ -7,12 +7,23 @@ from pymilvus import AnnSearchRequest, WeightedRanker, RRFRanker
 import traceback
 import time
 import logging
+from mod.tool import openfile  # 文件打开
 
 
 '''日志'''
 
 logger = logging.getLogger(__name__)
 
+
+
+'''项目配置文件'''
+
+conf_data = {}
+try:
+    if '{' in str(openfile('../file/conf.txt')):
+        conf_data = eval(openfile('../file/conf.txt'))
+except:
+    conf_data = {}
 
 '''检查数据库zyai是否存在，不存在就创建'''
 

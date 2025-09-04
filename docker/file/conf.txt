@@ -14,7 +14,7 @@
 "my_port": 3306,
 
 # 向量数据库milvus配置
-"m_dburl": "milvus-standalone:19530",
+"m_dburl": "http://milvus-standalone:19530",
 "m_dbtoken": "",
 
 # redis数据库配置

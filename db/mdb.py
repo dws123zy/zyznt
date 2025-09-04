@@ -392,7 +392,7 @@ def check_and_create_table(table_name, definition):
                     cursor.execute(sql2)
                     conn.commit()
                     # 增加apikey
-                    sql3 = """INSERT INTO zydict (appid, name, dictid, type, type2, data) VALUES (%s, 'agent-apikey', 'apikey001', 'key', 'key', '{"apikey": "apikey001", "expire": "000"}');""" % appid
+                    sql3 = """INSERT INTO zydict (appid, name, dictid, type, type2, data) VALUES ('%s', 'agent-apikey', 'apikey001', 'key', 'key', '{"apikey": "apikey001", "expire": "000"}');""" % appid
                     cursor.execute(sql3)
                     conn.commit()
 

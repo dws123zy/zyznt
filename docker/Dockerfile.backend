@@ -1,0 +1,50 @@
+# 后端 Dockerfile
+
+FROM python:3.12-slim-bookworm
+
+
+# 创建项目根目录并设置为工作目录
+WORKDIR /project
+
+# 使用国内源
+# 1. 首先检查并更新现有的 sources.list 或 sources.list.d 中的文件
+# 先查看 /etc/apt/ 目录下有哪些源配置文件
+RUN ls -la /etc/apt/sources.list* && \
+    # 如果 /etc/apt/sources.list 不存在，但存在 /etc/apt/sources.list.d/ 目录下的文件，则可以处理这些文件
+    # 例如，常见的 Debian 镜像可能使用 /etc/apt/sources.list.d/debian.sources 或其他文件
+    # 以下命令尝试替换 mirrors.aliyun.com，如果找到任何 .list 文件或特定文件
+    # 使用 find 命令来定位并处理所有可能的 .list 文件
+    find /etc/apt/ -name '*.list' -exec sed -i 's|deb.debian.org|mirrors.aliyun.com|g' {} + && \
+    find /etc/apt/ -name '*.list' -exec sed -i 's|security.debian.org/debian-security|mirrors.aliyun.com/debian-security|g' {} + && \
+    # 此外，有些镜像可能使用 .sources 文件（如Debian 12 bookworm）
+    # 同样处理这些文件（如果存在）
+    find /etc/apt/ -name '*.sources' -exec sed -i 's|deb.debian.org|mirrors.aliyun.com|g' {} + && \
+    find /etc/apt/ -name '*.sources' -exec sed -i 's|security.debian.org/debian-security|mirrors.aliyun.com/debian-security|g' {} +
+
+# 2. 安装系统依赖和 uv
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 3. 设置pip/uv的国内源（清华大学源）
+ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple/
+RUN pip3 install uv
+
+# 克隆后端代码到 backend 子目录
+RUN git clone https://dws9088:a3b949bf8237f9558ca23c0c66ff7f27@gitee.com/dws9088/zyzntai.git backend
+
+# 切换到后端代码目录
+WORKDIR /project/backend
+
+# 使用 uv 安装 Python 依赖，使用国内清华源
+RUN uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 在项目根目录创建必要的目录（这些目录将与主机挂载）
+RUN mkdir -p ../log ../file
+
+# 暴露端口
+EXPOSE 8000
+
+# 使用 uv run 启动应用
+CMD ["uv", "run", "uvicorn", "zyznt:app", "--host", "0.0.0.0", "--port", "8000"]

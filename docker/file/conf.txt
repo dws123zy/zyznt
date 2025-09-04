@@ -1,0 +1,28 @@
+{
+# 登录时的人机验证开关，值为真时开，假时关
+"verify": 1,
+"fileurl": "http://47.100.212.208:8000/file/getfile?",
+
+# 提取文档图片保存路径和url配置
+"image_dir":"../file/public_img",
+"base_url":"http://47.100.212.208:8000/file/getfile?appid=public_img&getid=",
+
+# mysql/mariadb数据库配置
+"my_host": "mariadb",
+"my_user": "root",
+"my_password": "zyznt",
+"my_port": 3306,
+
+# 向量数据库milvus配置
+"m_dburl": "milvus-standalone:19530",
+"m_dbtoken": "",
+
+# redis数据库配置
+"r_host": "redis",
+"r_password": "zyznt",
+"r_port": 6379,
+
+
+
+
+}

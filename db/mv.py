@@ -29,9 +29,13 @@ except:
 
 dbname = 'zyai'
 
-dburl = 'http://139.196.36.245:19530'
+dburl = 'http://127.0.0.1:19530'
+if conf_data.get('m_dburl'):
+    dburl = conf_data.get('m_dburl', 'http://127.0.0.1:19530')
 
 dbtoken = ''
+if conf_data.get('m_dbtoken'):
+    dbtoken = conf_data.get('m_dbtoken', '')
 
 
 def milvus_init(vdburl=dburl, vdbtoken=dbtoken):

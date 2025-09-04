@@ -208,7 +208,7 @@ def r_set_exp(cmd):
         r = redis.Redis(connection_pool=redis_pool)
         try:
             # 设置键、值，并设置过期时间为180秒
-            jg = r.set(cmd[1], cmd[2], ex=180)
+            jg = r.set(cmd[0], cmd[1], ex=180)
         except Exception as ekr:
             logger.error(f"r_set_exp错误:{ekr}")
             logger.error('r_set_exp执行命令错误' + str(traceback.format_exc()))

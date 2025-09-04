@@ -5,7 +5,9 @@ import pymysql
 from pymysql.err import OperationalError, ProgrammingError
 import logging
 import random
+import traceback
 from mod.tool import openfile  # 文件打开
+from db.my import msqlc, sql3sz
 
 
 # 配置日志
@@ -300,9 +302,9 @@ query = {
 '''' 表结构总数据  '''
 
 TABLE_DEFINITIONS = {
+    'zydict': zydict,  # 数据字典表
     'company': company,  # 公司表
     'user': user,  # 用户表
-    'zydict': zydict,  # 数据字典表
     'rag': rag,  # rag知识库表
     'file': file,  # 文件表
     'agent': agent,  # 智能体
@@ -386,8 +388,12 @@ def check_and_create_table(table_name, definition):
                     sql = f"INSERT INTO company (name, appid) VALUES ('卓越智能体', '{appid}');"
                     cursor.execute(sql)
                     # 增加用户
-                    sql = f"INSERT INTO user (user, password, userid, appid, name, role) VALUES ('admin@zyznt', 'zyznt', '8000', '{appid}', '管理员', 'admin');"
-                    cursor.execute(sql)
+                    sql2 = f"INSERT INTO user (user, password, userid, appid, name, role) VALUES ('admin@zyznt', 'zyzntai', '8000', '{appid}', '管理员', 'admin');"
+                    cursor.execute(sql2)
+                    conn.commit()
+                    # 增加apikey
+                    sql3 = """INSERT INTO zydict (appid, name, dictid, type, type2, data) VALUES (%s, 'agent-apikey', 'apikey001', 'key', 'key', '{"apikey": "apikey001", "expire": "000"}');""" % appid
+                    cursor.execute(sql3)
                     conn.commit()
 
 
@@ -473,6 +479,32 @@ def check_and_create_table(table_name, definition):
                     logger.info(f"表 {table_name} 结构已更新")
                 else:
                     logger.info(f"表 {table_name} 结构无需更新")
+            # 检查数据字典，是否需要增加数据
+            if table_name in ['zydict']:
+                # 查询数据字典中所有的数据，判断是否有缺少的公共数据，如果有添加
+                zydict_data = []
+                try:
+                    # 执行SQL语句
+                    sqla = "select * from zydict"
+                    dataczydict = msqlc(sqla)
+                    if dataczydict:
+                        for i in dataczydict:
+                            zydict_data.append(i.get('dictid'))
+                    else:
+                        logger.warning('错误，未查到数据字典数据，reload失败')
+                except Exception as sqlload:
+                    logger.error("loaddict错误:")
+                    logger.error(sqlload)
+                    logger.error(traceback.format_exc())
+                # 开始添加数据
+                for z in dict_data:
+                    if z['dictid'] not in zydict_data:
+                        sql = sql3sz(z, 'zydict')
+                        cursor.execute(sql)
+                        conn.commit()
+                        logger.info(f'添加数据字典 {z["dictid"]} 成功')
+                    else:
+                        logger.warning(f'数据字典已存在，无需添加 {z['dictid']}')
 
     except Exception as e:
         logger.error(f"处理表 {table_name} 时出错: {e}")
@@ -503,6 +535,58 @@ def initialize_database():
 # initialize_database()
 
 
+'''数据字典公共数据'''
 
-
+dict_data = [
+    {'appid': 'zyggzj', 'name': '管理员', 'dictid': 'admin', 'type': 'role', 'type2': '角色', 'type3': '',
+     'data': "{'menu': ['all'], 'filter': {'file': 'adminfile', 'rag': 'adminrag', 'part': 'adminpart', 'agent': 'adminagent'},'tb': {'file': 'khbt', 'rag': 'gdbt'},'form': {'file': 'khxq', 'rag': 'gdxq', 'agent': 'agent_form'}}"},
+    {'appid': 'zyggzj', 'name': '知识库检索项', 'dictid': 'adminrag', 'type': 'filter', 'type2': '检索项', 'type3': '',
+     'data': '[{"required":"f", "field": "name", "text": "知识库名", "type": "input"}]'},
+    {'appid': 'zyggzj', 'name': '文件检索项', 'dictid': 'adminfile', 'type': 'filter', 'type2': '检索项', 'type3': '',
+     'data': '[{"required":"f", "field": "name", "text": "文件名", "type": "input"}, {"required":"f", "field": "ragid", "text": "知识库", "type": "input", "show": "f"}, {"required":"t", "field": "appid", "text": "公司id", "type": "input", "show": "f"},{\'field\': \'state\', \'text\': \'状态\', \'default\': \'t\', \'placeholder\': \'文本块的状态\', \'type\': \'select\', \'required\': \'f\', \'update\': \'t\', \'options\': [{\'label\': \'启用\', \'value\': \'t\'}, {\'label\': \'停用\', \'value\': \'f\'}]}]'},
+    {'appid': 'zyggzj', 'name': '文件列表表头', 'dictid': 'file_tb', 'type': 'head', 'type2': '表头', 'type3': '',
+     'data': '[{"field": "name", "text": "文件名"}, {"field": "analysis", "text": "解析状态"}, {"field": "user", "text": "上传帐号"}, {"field": "size", "text": "大小"}, {"field": "state", "text": "状态"}, {"field": "time", "text": "上传时间"},{"field": "operate", "text": "操作"}]'},
+    {'appid': 'zyggzj', 'name': '知识库表单', 'dictid': 'rag_form', 'type': 'form', 'type2': '表单', 'type3': '',
+     'data': "[{'field': 'name', 'text': '知识库名称', 'default': '', 'placeholder': '给您的知识库取名', 'type': 'input', 'required': 't', 'update': 't'}, {'field': 'remarks', 'text': '描述介绍', 'default': '', 'placeholder': '介绍下您的知识库', 'type': 'text', 'required': 'f', 'update': 't'}, {'field': 'type', 'text': '内部/外部', 'default': 'in', 'placeholder': '知识库类型', 'type': 'select', 'required': 't', 'update': 't',  'options': [{'label': '内部', 'value': 'in'}, {'label': '外部', 'value': 'out'}]}, {'field': 'split', 'text': '文本分段', 'default': '', 'placeholder': '配置文本分段方法通用、问答、LLM', 'type': 'split', 'required': 't', 'update': 't'}, {'field': 'search', 'text': '知识检索配置', 'default': '', 'placeholder': '向量、全文、向量+全文', 'type': 'search', 'required': 't', 'update': 't'}, {'field': 'embedding', 'text': 'embedding模型', 'default': 'text-embedding-v4', 'placeholder': '把文本块向量化的模型', 'type': 'select', 'required': 'f', 'update': 't', 'options': [{'label': 'bge-large-zh-v1.5', 'value': 'bge-large-zh-v1.5'}, {'label': 'qwen3-embedding', 'value': 'text-embedding-v4'}]}, {'field': 'rerank', 'text': '重排序模型', 'default': '', 'placeholder': '重排序模型', 'type': 'select', 'required': 'f', 'update': 't', 'options': [{'label': 'qwen-rerank重排序', 'value': 'qwen-rerank'}]}, {'field': 'db', 'text': '向量数据库', 'default': 'milvus', 'placeholder': '向量数据库', 'type': 'select', 'required': 't', 'update': 't', 'options': [{'label': 'milvus向量数据库', 'value': 'milvus'}]}, {'field': 'tbdata', 'text': '向量表设计', 'default': 'm_tbdata', 'placeholder': '向量表字段索引配置', 'type': 'select', 'required': 't', 'update': 't', 'options': [{'label': 'milvus向量表配置字典', 'value': 'm_tbdata'}]}]"},
+    {'appid': 'zyggzj', 'name': '向量数据库表配置', 'dictid': 'm_tbdata', 'type': 'db', 'type2': '向量表', 'type3': '',
+     'data': '{\'tbdata\': "{\'fields\': [{\'name\': \'id\', \'description\': \'主键id\', \'type\': DataType.INT64, \'is_primary\': True, \'auto_id\': True},{\'name\': \'vector\', \'description\': \'向量数据\', \'type\': DataType.FLOAT_VECTOR},{\'name\':\'sparse\', \'description\': \'稀疏向量\',\'type\': DataType.SPARSE_FLOAT_VECTOR},{\'name\':\'text\', \'description\': \'文本数据\',\'type\': DataType.VARCHAR, \'max_length\': 10000, \'default_value\': \'\'},{\'name\':\'s_text\', \'description\': \'稀疏向量文本\',\'type\': DataType.VARCHAR, \'max_length\': 10000, \'default_value\': \'\',\'enable_analyzer\':True},{\'name\':\'q_text\', \'description\': \'问答模式的问文本，答在text\',\'type\': DataType.VARCHAR, \'max_length\': 10000, \'default_value\': \'\'},{\'name\':\'fileid\', \'description\': \'文件id，用于把块关联到文件\',\'type\': DataType.VARCHAR, \'max_length\': 30, \'default_value\': \'\'},{\'name\':\'state\', \'description\': \'文本块状态，t为开，f为关\',\'type\': DataType.VARCHAR, \'max_length\': 3, \'default_value\': \'t\'},{\'name\':\'keyword\', \'description\': \'关键词\',\'type\': DataType.VARCHAR, \'max_length\': 100, \'default_value\': \'\'},{\'name\':\'metadata\', \'description\': \'元数据，json格式，可用于检索\',\'type\': DataType.JSON, \'max_length\': 200, \'nullable\':True},],\'index_params\':[{\'field_name\': \'vector\', \'index_type\': \'FLAT\', \'metric_type\':\'COSINE\'},{\'field_name\': \'sparse\', \'index_type\': \'SPARSE_INVERTED_INDEX\', \'metric_type\':\'BM25\'},{\'field_name\': \'state\', \'index_type\': \'\'},{\'field_name\': \'fileid\', \'index_type\': \'\'}],\'enable_dynamic_field \': True,\'functions\': {\'name\': \'bm25\', \'description\': \'稀疏向量功能函数\', \'type\': FunctionType.BM25, \'input_field_names\': [\'s_text\'],\'output_field_names\': [\'sparse\'], \'params\': {}}}"}'},
+    {'appid': 'zyggzj', 'name': '文本段检索项', 'dictid': 'adminpart', 'type': 'filter', 'type2': '检索项', 'type3': '',
+     'data': '[{"required":"t", "field": "fileid", "text": "文件id", "type": "input", "show": "f"},  {\'field\': \'state\', \'text\': \'状态\', \'default\': \'t\', \'placeholder\': \'文本块的状态\', \'type\': \'select\', \'required\': \'f\', \'update\': \'t\', \'options\': [{\'label\': \'启用\', \'value\': \'t\'}, {\'label\': \'停用\', \'value\': \'f\'}]}]'},
+    {'appid': 'zyggzj', 'name': '文件格式', 'dictid': 'fileformat', 'type': 'fileformat', 'type2': '文件格式',
+     'type3': '',
+     'data': "{'docx': 'read_docx', 'pdf': 'read_pdf', 'xlsx': 'read_excel', 'pptx': 'read_ppt', 'csv': 'read_csv', 'txt': 'read_file', 'py': 'read_file', 'docx_img': 'read_docx_img', 'size': 10}"},
+    {'appid': 'zyggzj', 'name': '文件模块', 'dictid': 'filemod', 'type': 'filemod', 'type2': '文件模块', 'type3': '',
+     'data': "[{'fun_name': 'read_file', 'dir': 'mod.file2text.file2text'}, {'fun_name': 'read_pdf', 'dir': 'mod.file2text.file2text'}, {'fun_name': 'read_docx', 'dir': 'mod.file2text.file2text'}, {'fun_name': 'read_docx_img', 'dir': 'mod.file2text.file2text'}, {'fun_name': 'read_excel', 'dir': 'mod.file2text.file2text'}, {'fun_name': 'read_ppt', 'dir': 'mod.file2text.file2text'},{'fun_name': 'read_csv', 'dir': 'mod.file2text.file2text'}]"},
+    {'appid': 'zyggzj', 'name': 'agent智能体表单', 'dictid': 'agent_form', 'type': 'form', 'type2': '表单', 'type3': '',
+     'data': "[{'field': 'name', 'text': '智能体名称', 'default': '', 'placeholder': '给您的智能体取名', 'type': 'input', 'required': 't', 'update': 't'}, {'field': 'remarks', 'text': '描述介绍', 'default': '', 'placeholder': '介绍下您的智能体', 'type': 'text', 'required': 'f', 'update': 't'}, {'field': 'agentid', 'text': '智能体id', 'default': '', 'placeholder': '智能体id', 'type': 'input', 'required': 'f', 'update': 't', 'show': 'f'}, {'field': 'icon', 'text': '智能体图标', 'default': 'https://zy-wendang.oss-cn-hangzhou.aliyuncs.com/img/ai-avatar.svg', 'placeholder': '图标', 'type': 'upload', 'required': 'f', 'update': 't'}, {'field': 'user', 'text': '创建人', 'default': '', 'placeholder': '创建人', 'type': 'input', 'required': 'f', 'update': 't', 'show': 'f'}, {'field': 'appid', 'text': '公司id', 'default': '', 'placeholder': '公司id', 'type': 'input', 'required': 'f', 'update': 't', 'show': 'f'}, {'field': 'time', 'text': '更新时间', 'default': '', 'placeholder': '更新时间', 'type': 'input', 'required': 'f', 'update': 't', 'show': 'f'}, {'field': 'data', 'text': '配置数据', 'default': '', 'placeholder': '智能体配置', 'type': 'data', 'required': 'f', 'update': 't', 'data': [{'field': 'prompt', 'text': '提示词', 'default': '', 'placeholder': '智能体提示词', 'type': 'text', 'required': 't', 'update': 't'}, {'field': 'prologue', 'text': '开场白', 'default': '', 'placeholder': '开场白，对话开始时智能体会先发送开场白内容', 'type': 'text', 'required': 'f', 'update': 't'}, {'field': 'context', 'text': 'llm上下文', 'default': '', 'placeholder': 'llm上下文，可以增加知识、行业特定专用词、事物逻辑等任何帮助大模型理解业务场景的内容', 'type': 'text', 'required': 'f', 'update': 't'}, {'field': 'memory', 'text': '多轮对话', 'default': 't', 'placeholder': '记忆对话', 'type': 'select', 'required': 'f', 'update': 't', 'options': [{'label': '开启', 'value': 't'}, {'label': '关闭', 'value': 'f'}]}, {'field': 'llm', 'text': 'LLM大模型', 'default': '', 'placeholder': '选择大模型', 'type': 'select', 'required': 't', 'update': 't', 'options': [{'label': 'qwen-plus', 'value': 'qwen-plus'}, {'label': 'deepseek-v3', 'value': 'deepseek-v3'}]}, {'field': 'tools', 'text': 'MCP工具', 'default': '', 'placeholder': '工具列表，多选', 'type': 'select', 'required': 'f', 'update': 't', 'options': [{'label': '开启', 'value': 't'}, {'label': '关闭', 'value': 'f'}]}, {'field': 'temperature', 'text': '回复热度', 'default': '0.7', 'placeholder': 'LLM大模型生成文本的多样性，取值范围： [0, 2)，值越高文本越多样', 'type': 'input', 'required': 'f', 'update': 't'}, {'field': 'rag', 'text': 'rag知识库', 'default': '', 'placeholder': '知识库列表，多选', 'type': 'select', 'required': 'f', 'update': 't', 'options': []}, {'field': 'file', 'text': '文件知识库', 'default': '', 'placeholder': '文件列表，多选,所有文件总字数建议不超过5000', 'type': 'upload', 'required': 'f', 'update': 't', 'options': []}, {'field': 'website', 'text': '网页搜索', 'default': '', 'placeholder': '网页搜索知识', 'type': 'select', 'required': 'f', 'update': 't', 'options': []}, {'field': 'asr', 'text': '语音识别模型', 'default': '', 'placeholder': '语音获取和识别', 'type': 'select', 'required': 'f', 'update': 't', 'options': []}, {'field': 'tts', 'text': 'TTS模型', 'default': '', 'placeholder': '文本转语音', 'type': 'select', 'required': 'f', 'update': 't', 'options': []}]}]"},
+    {'appid': 'zyggzj', 'name': '数据字典检索项', 'dictid': 'adminzydict', 'type': 'filter', 'type2': '检索项',
+     'type3': '',
+     'data': '[{"required":"f", "field": "name", "text": "名称", "type": "input", \'default\': \'\'}, {"required":"t", "field": "type", "text": "数据类型", "type": "input", \'default\': \'llm\'}, {"required":"t", "field": "appid", "text": "公司", "type": "input", \'default\': \'zyggzj\'}]'},
+    {'appid': 'zyggzj', 'name': '数据字典分类菜单', 'dictid': 'adminmenu', 'type': 'menu', 'type2': '菜单', 'type3': '',
+     'data': '[{\'label\': \'LLM大模型\', \'value\': \'llm\', \'placeholder\': """LLM大模型配置:\\n skd： openai、ollama或其它支持的类型，默认openai，必填  \\n url：连接LLM的url地址，必填 \\n apikey：LLM平台鉴权的api_key，必填 \\n module：LLM模型名称，必填 \\n maxtext：模型支持的最大上下文，非必填 \\n provider：模型提供商，非必填 \\n remarks：模型描述，非必填 \\n 配置示例：{"sdk": "openai", "sdkdir": "", "url": "https://dashscope.aliyuncs.com/compatible-mode/v1", "apikey": "***************b82cf", "module": "qwen-plus", "maxtext": "", "provider": "阿里云百炼", "remarks": ""}"""}, {\'label\': \'embd模型\', \'value\': \'embd\', \'placeholder\': \'embd向量模型配置:\\n\'}, {\'label\': \'MCP服务\', \'value\': \'mcp\', \'placeholder\': \'mcp服务配置:\'}, {\'label\': \'检索项\', \'value\': \'filter\', \'placeholder\': \'动态检索项配置:\\n\'}, {\'label\': \'动态表单\', \'value\': \'form\', \'placeholder\': \'动态表单配置:\'}]'},
+    {'appid': 'zyggzj', 'name': '开始', 'dictid': 'start_mod', 'type': 'mod', 'type2': '组件', 'type3': '',
+     'data': "{'type': 'mod', 'module': 'start_mod', 'module_name': '开始', 'description': '开始，初始化系统变量和自定义变量，创建会话工作id，初始化空间', 'input': '', 'output': ''}"},
+    {'appid': 'zyggzj', 'name': '结束', 'dictid': 'end_mod', 'type': 'mod', 'type2': '组件', 'type3': '',
+     'data': "{'type': 'mod', 'module': 'end_mod', 'module_name': '结束', 'description': '结束，结束会话，保存会话记录，清空内存运行数据', 'input': '', 'output': ''}"},
+    {'appid': 'zyggzj', 'name': 'LLM', 'dictid': 'llm_mod', 'type': 'mod', 'type2': '组件', 'type3': '',
+     'data': "{'type': 'mod', 'module': 'llm_mod', 'module_name': 'LLM大模型', 'description': 'LLM大模型调用并执行任务', 'input': {'user_input': '', 'llm': 'LLM大模型', 'prompt': '提示词', 'tools': []}, 'output': {'content': ''}}"},
+    {'appid': 'zyggzj', 'name': '流组件运行模块', 'dictid': 'flowmod', 'type': 'flowmod', 'type2': '组件模块',
+     'type3': '',
+     'data': "[{'fun_name': 'start_mod', 'dir': 'mod.flow_mod'}, {'fun_name': 'end_mod', 'dir': 'mod.flow_mod'}, {'fun_name': 'param_data', 'dir': 'mod.flow_mod'}, {'fun_name': 'llm_mod', 'dir': 'mod.flow_mod'}, {'fun_name': 'http_mod', 'dir': 'mod.flow_mod'}, {'fun_name': 'if_mod', 'dir': 'mod.flow_mod'}, {'fun_name': 'data_processing', 'dir': 'mod.flow_mod'}, {'fun_name': 'code_mod', 'dir': 'mod.flow_mod'}, {'fun_name': 'mcp_mod', 'dir': 'mod.flow_mod'}]"},
+    {'appid': 'zyggzj', 'name': '智能体检索项', 'dictid': 'adminagent', 'type': 'filter', 'type2': '检索项',
+     'type3': '', 'data': '[{"required":"f", "field": "name", "text": "智能体名称", "type": "input"}]'},
+    {'appid': 'zy001', 'name': '时间mcp', 'dictid': 'zytime', 'type': 'mcp', 'type2': 'mcp',
+     'type3': '获取当前服务器时间', 'data': '{"mcpServers": {"zytime": {"url": "http://127.0.0.1:53003/mcp"}}}'},
+    {'appid': 'zyggzj', 'name': '我的统计', 'dictid': '7day', 'type': 'report', 'type2': 'report', 'type3': '',
+     'data': '{"sqla": "SELECT dates.date AS `date`, COUNT(ar.id) AS `chat`, COUNT(DISTINCT ar.user) AS `user`FROM (SELECT CURDATE() - INTERVAL 6 DAY AS date UNION SELECT CURDATE() - INTERVAL 5 DAY UNION SELECT CURDATE() - INTERVAL 4 DAY UNION SELECT CURDATE() - INTERVAL 3 DAY UNION SELECT CURDATE() - INTERVAL 2 DAY UNION SELECT CURDATE() - INTERVAL 1 DAY UNION SELECT CURDATE()) AS dates LEFT JOIN agent_record ar ON DATE(ar.start_time) = dates.date AND ar.appid = \'zy001\' GROUP BY dates.date ORDER BY dates.date;"}'},
+    {'appid': 'zyggzj', 'name': '文本块表单', 'dictid': 'part_form', 'type': 'form', 'type2': '表单', 'type3': '',
+     'data': '[{\'field\': \'fileid\', \'text\': \'文件id\', \'default\': \'\', \'placeholder\': \'文件id\', \'type\': \'input\', \'required\': \'t\', \'update\': \'t\',\'show\': \'f\'},{\'field\': \'text\', \'text\': \'文本\', \'default\': \'\', \'placeholder\': \'文本内容\', \'type\': \'text\', \'required\': \'t\', \'update\': \'t\'},{\'field\': \'q_text\', \'text\': \'问文本\', \'default\': \'\', \'placeholder\': \'对文本内容的常用提问或对话，可以填多个，此项有值时，向量检索相似度时以此项内容为准，结果以文本内容为准\', \'type\': \'text\', \'required\': \'f\', \'update\': \'t\'},{\'field\': \'state\', \'text\': \'状态\', \'default\': \'t\', \'placeholder\': \'文本状态\', \'type\': \'select\', \'required\': \'t\', \'update\': \'t\', \'options\': [{\'label\': \'启用\', \'value\': \'t\'}, {\'label\': \'停用\', \'value\': \'f\'}]},{\'field\': \'keyword\', \'text\': \'关键词\', \'default\': \'\', \'placeholder\': \'定义文本段的关键词，检索时可用\', \'type\': \'input\', \'required\': \'f\', \'update\': \'t\'},{\'field\': \'metadata\', \'text\': \'元数据\', \'default\': \'{"type": "手动增加"}\', \'placeholder\': \'文本元数据配置，json格式，内容可自定义\', \'type\': \'input\', \'required\': \'f\', \'update\': \'t\'}]'},
+    {'appid': 'zy001', 'name': 'rag-mcp知识库', 'dictid': 'rag1753351498533', 'type': 'mcp', 'type2': 'mcp',
+     'type3': '',
+     'data': '{"mcpServers": {"rag1753351498533": {"url": "http://127.0.0.1:53005/mcp?type=rag&ragid=rag1753351498533&apikey=apikey001"}}}'},
+    {'appid': 'zyggzj', 'name': '智能数据检索项', 'dictid': 'query', 'type': 'filter', 'type2': '检索项', 'type3': '',
+     'data': '[{"required":"f", "field": "name", "text": "数据名称", "type": "input", \'default\': \'\'}, {"required":"f", "field": "type", "text": "数据类型", "type": "input", \'default\': \'\'}, {"required":"t", "field": "appid", "text": "公司", "type": "input", \'default\': \'zy001\', \'show\': \'f\'},{"required":"f", "field": "user", "text": "创建用户", "type": "input", \'default\': \'\'}]'},
+    {'appid': 'zyggzj', 'name': '智能数据表头', 'dictid': 'query_tb', 'type': 'head', 'type2': '表头', 'type3': '',
+     'data': '[{"field": "name", "text": "数据名称"}, {"field": "type", "text": "数据类型",\'options\': [{\'label\': \'AISQL\', \'value\': \'bi\'}, {\'label\': \'图表\', \'value\': \'chart\'}, {\'label\': \'数据大屏\', \'value\': \'dashboard\'}]}, {"field": "time", "text": "更新时间"}, {"field": "user", "text": "创建人"}, {"field": "operate", "text": "操作"}]'},
+]
 

@@ -11,17 +11,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 import coloredlogs
 
-# 导入api子模块
-from api import logon
-from api import rag
-from api import agent
-from api import agentapi
-from api import admin
-from api import bi
-
-# 初始化数据
-from db import mdb, rdb
-
 
 '''定义日志程序'''
 
@@ -98,8 +87,20 @@ except Exception as e:
 
 
 '''每次启动检查数据库，是否需要初始化数据'''
+
+from db import mdb, rdb
+
 mdb.initialize_database()
 rdb.redis_init()
+
+
+# 导入api子模块
+from api import logon
+from api import rag
+from api import agent
+from api import agentapi
+from api import admin
+from api import bi
 
 
 '''初始化后端api框架Fast-app'''

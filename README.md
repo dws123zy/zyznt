@@ -4,13 +4,13 @@
 zyznt 是一个开源的 LLM 应用开发平台。其直观的界面结合了 AI 工作流、RAG 管道、Agent、模型管理、可观测性功能等，让您可以快速从原型到生产。以下是其核心功能列表：
 </br> </br>
 
+![zyznt-v1](https://zy-wendang.oss-cn-hangzhou.aliyuncs.com/img/zyznt.png)
+</br> </br>
 **1. 工作流**:
 在画布上构建和测试功能强大的 AI 工作流程，利用以下所有功能以及更多功能。
 
 **2. 全面的模型支持**:
 与数百种专有/开源 LLMs 以及数十种推理提供商和自托管解决方案无缝集成，涵盖 GPT、Mistral、Llama3 以及任何与 OpenAI API 兼容的模型。
-
-![zyznt-v1](https://zy-wendang.oss-cn-hangzhou.aliyuncs.com/img/zyznt.png)
 
 **3. Prompt IDE**:
 用于制作提示、比较模型性能以及向基于聊天的应用程序添加其他功能（如文本转语音）的直观界面。

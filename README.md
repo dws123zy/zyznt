@@ -76,7 +76,7 @@ docker-compose up -d
 扫二维码添加 zyznt 助手，进 zyznt 社区交流群。</br></br>
 
 <p align="center">
-  <img src="https://zy-wendang.oss-cn-hangzhou.aliyuncs.com/img/weixin-zyznt.png" width=20% height=30%>
+  <img src="https://zy-wendang.oss-cn-hangzhou.aliyuncs.com/img/weixin-zyznt.png" width=35% height=35%>
 </p>
 
 </br></br>
